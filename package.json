@@ -52,7 +52,7 @@
     "spectre.css": "^0.5.8",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",
-    "tsc-alias": "^1.8.16",
+    "tsc-alias": "^1.8.17",
     "tsconfig-paths-webpack-plugin": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.5.0",

@@ -464,6 +464,11 @@
                                                       <i class="form-icon"></i> <span v-i18n>Beginner?</span>&nbsp;<a :href="wikiUrls.beginnerCorporation" class="tooltip" v-i18n data-tooltip="Link opens in a new tab/window" target="_blank">&#9432;</a>
                                                   </label>
 
+                                                  <label class="form-switch form-inline create-game-beginner-option-label">
+                                                      <input type="checkbox" v-model="newPlayer.isAI">
+                                                      <i class="form-icon"></i> <span v-i18n>AI player?</span>
+                                                  </label>
+
                                                   <label class="form-label">
                                                       <input type="number" class="form-input form-inline player-handicap" value="0" min="0" :max="10" v-model.number="newPlayer.handicap" />
                                                       <i class="form-icon"></i><span v-i18n>TR Boost</span>&nbsp;<a :href="wikiUrls.trBoost" class="tooltip" v-i18n data-tooltip="Link opens in a new tab/window" target="_blank">&#9432;</a>
@@ -938,7 +943,9 @@ export default defineComponent({
 
       this.players.forEach((player) => {
         if (player.name === '') {
-          if (isSoloMode) {
+          if (player.isAI) {
+            player.name = this.$t('AI');
+          } else if (isSoloMode) {
             player.name = this.$t('You');
           } else {
             const defaultPlayerName = this.$t(player.color.charAt(0).toUpperCase() + player.color.slice(1));

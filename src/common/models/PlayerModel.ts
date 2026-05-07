@@ -52,6 +52,7 @@ export type PublicPlayerModel = {
   heatProduction: number;
   id: PlayerId | undefined;
   influence: number;
+  isAI?: boolean;
   isActive: boolean;
   lastCardPlayed?: CardName;
   megacredits: number;

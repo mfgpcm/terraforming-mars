@@ -16,6 +16,7 @@ export interface NewPlayerModel {
   beginner: boolean;
   handicap: number;
   first: boolean;
+  isAI?: boolean;
 }
 
 export type EscapeVelocityOptions = {

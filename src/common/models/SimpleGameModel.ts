@@ -19,4 +19,5 @@ type SimplePlayerModel = {
     color: Color;
     id: PlayerId;
     name: string;
+    isAI?: boolean;
 }

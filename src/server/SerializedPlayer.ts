@@ -81,4 +81,5 @@ export interface SerializedPlayer extends DeprecatedFields{
   user?: DiscordId;
   warmongerCards: number;
   withinDeflectionZone: boolean;
+  isAI?: boolean;
 }

@@ -100,6 +100,7 @@ export class ApiCreateGame extends Handler {
               obj.beginner,
               Number(obj.handicap), // For some reason handicap is coming up a string.
               safeCast(generateRandomId('p'), isPlayerId),
+              Boolean(obj.isAI),
             );
           });
           let firstPlayerIdx = 0;

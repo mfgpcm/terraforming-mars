@@ -52,6 +52,9 @@ import {InputResponse} from '../common/inputs/InputResponse';
 import {Tags} from './player/Tags';
 import {Colonies} from './player/Colonies';
 import {Production} from './player/Production';
+import {AiClient, MoveRequestPayload, MoveResponsePayload} from './ai/AiClient';
+import {buildAiRequestState} from './ai/stateMapping';
+import {TrainingLogger} from './ai/TrainingLogger';
 import {Stock} from './player/Stock';
 import {getBehaviorExecutor} from './behavior/BehaviorExecutor';
 import {CeoExtension} from './CeoExtension';
@@ -251,7 +254,8 @@ export class Player implements IPlayer {
     public color: Color,
     public beginner: boolean,
     public handicap: number = 0,
-    id: PlayerId) {
+    id: PlayerId,
+    public isAI: boolean = false) {
     this.id = id;
     // This seems pretty bad. The game will be set before the Player is actually
     // used, and if that doesn't happen, well, it's a worthy error.
@@ -1710,6 +1714,10 @@ export class Player implements IPlayer {
     this.waitingFor = input;
     this.waitingForCb = cb;
     this.game.inputsThisRound++;
+
+    if (this.isAI) {
+      void this.requestAiMove();
+    }
   }
 
   /**
@@ -1732,6 +1740,56 @@ export class Player implements IPlayer {
           savedcb();
           this.setWaitingForSafely(input, cb);
         };
+      }
+    }
+  }
+
+  private async requestAiMove(): Promise<void> {
+    if (!this.isAI || this.waitingFor === undefined) {
+      return;
+    }
+
+    const client = new AiClient();
+    const logger = new TrainingLogger();
+    const state = buildAiRequestState(this.game as Game, this);
+    const request: MoveRequestPayload = {
+      game_id: this.game.id,
+      player_id: this.id,
+      state,
+      legal_actions: [{
+        action_id: 'provide_input',
+        type: this.waitingFor.type,
+        title: typeof this.waitingFor.title === 'string' ? this.waitingFor.title : '',
+        payload: {
+          input: this.waitingFor.toModel(this),
+        },
+      }],
+      metadata: {
+        schema_version: 1,
+      },
+    };
+
+    let response: MoveResponsePayload | undefined;
+    try {
+      response = await client.requestMove(request);
+      await logger.append({
+        game_id: request.game_id,
+        player_id: request.player_id,
+        timestamp: new Date().toISOString(),
+        state: request.state,
+        waitingFor: request.legal_actions[0].payload,
+        response,
+      });
+    } catch (error) {
+      console.error('AI request failed for player', this.id, error);
+      return;
+    }
+
+    if (response?.input_response !== undefined) {
+      try {
+        this.process(response.input_response as unknown as InputResponse);
+      } catch (err) {
+        console.error('AI response processing failed for player', this.id, err);
       }
     }
   }
@@ -1815,6 +1873,7 @@ export class Player implements IPlayer {
       color: this.color,
       beginner: this.beginner,
       handicap: this.handicap,
+      isAI: this.isAI,
       timer: this.timer.serialize(),
       // Stats
       actionsTakenThisGame: this.actionsTakenThisGame,
@@ -1856,6 +1915,7 @@ export class Player implements IPlayer {
     player.lastCardPlayed = d.lastCardPlayed;
     player.standardProjectsThisGeneration = new Set(d.standardProjectsThisGeneration);
     player.megaCredits = d.megaCredits;
+    player.isAI = Boolean(d.isAI);
     player.needsToDraft = d.needsToDraft;
     player.oceanBonus = d.oceanBonus;
     player.plants = d.plants;
