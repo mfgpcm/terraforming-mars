@@ -87,7 +87,61 @@ Use the existing JSON persistence model to add training logs without breaking th
   - `is_human` / `is_ai`.
 - At game end, record final results per player and the full turn history.
 
-Example log structure:
+### 5a. Store game specification in exported logs
+
+The exported game logs must include the game configuration to support analysis and training.
+
+- Extract `SerializedGame.gameOptions` which contains:
+  - board name (`boardName: BoardName`)
+  - expansion toggles (e.g., `venusNextExtension`, `coloniesExtension`, `moonExpansion`)
+  - variants (e.g., `draftVariant`, `randomMA`, `soloTR`, `moonStandardProjectVariant`)
+  - custom selections (e.g., `customCorporationsList`, `bannedCards`, `customColoniesList`)
+  - player count can be derived from `SerializedGame.players.length`
+  - game duration can be calculated from the starting `createdTimeMs` to the current export time or final generation
+- Add `game_spec` to the top-level export payload with:
+  - `board_name`
+  - `expansions` (enabled expansion list)
+  - `variants` (enabled variant flags)
+  - `player_count`
+  - `custom_lists` (any custom card/colony/prelude selections)
+  - `created_at` (ISO timestamp from `SerializedGame.createdTimeMs`)
+  - `last_save_id` (final save ID for game duration context)
+
+Example:
+
+```json
+{
+  "game_id": "g123...",
+  "timestamp": "2026-05-07T22:41:29.758Z",
+  "game_spec": {
+    "board_name": "Standard",
+    "player_count": 2,
+    "created_at": "2026-05-07T20:41:29.000Z",
+    "expansions": ["base", "venusNext", "colonies", "turmoil"],
+    "variants": {
+      "draftVariant": false,
+      "randomMA": "RANDOM",
+      "soloTR": false
+    },
+    "custom_lists": {
+      "bannedCards": [],
+      "customCorporationsList": []
+    },
+    "last_save_id": 145
+  },
+  "saves": {
+    "0": [ ... ],
+    "1": [ ... ]
+  },
+  "errors": []
+}
+```
+
+This ensures training data pipelines can filter, analyze, and group games by configuration.
+
+### 6. Old logging examples
+
+Example log structure (retained for reference):
 
 ```json
 {
