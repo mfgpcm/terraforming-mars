@@ -1436,7 +1436,6 @@ export class Player implements IPlayer {
    * should only be false in testing and when this method is called during game deserialization. In other
    * words, don't set this value unless you know what you're doing.
    */
-  // @ts-ignore saveBeforeTakingAction is unused at the moment.
   public takeAction(saveBeforeTakingAction: boolean = true): void {
     const game = this.game;
 
@@ -1445,10 +1444,9 @@ export class Player implements IPlayer {
       return;
     }
 
-    if (this.actionsTakenThisRound === 0 || game.gameOptions.undoOption) {
+    if (saveBeforeTakingAction && (this.actionsTakenThisRound === 0 || game.gameOptions.undoOption)) {
       game.save();
     }
-    // if (saveBeforeTakingAction) game.save();
 
 
     // Autopass is disabled.
@@ -1772,25 +1770,32 @@ export class Player implements IPlayer {
     let response: MoveResponsePayload | undefined;
     try {
       response = await client.requestMove(request);
-      await logger.append({
-        game_id: request.game_id,
-        player_id: request.player_id,
-        timestamp: new Date().toISOString(),
-        state: request.state,
-        waitingFor: request.legal_actions[0].payload,
-        response,
-      });
     } catch (error) {
       console.error('AI request failed for player', this.id, error);
       return;
     }
 
-    if (response?.input_response !== undefined) {
-      try {
-        this.process(response.input_response as unknown as InputResponse);
-      } catch (err) {
-        console.error('AI response processing failed for player', this.id, err);
-      }
+    if (response?.input_response === undefined) {
+      console.warn('AI response missing input_response for player', this.id, 'game', this.game.id);
+      return;
+    }
+
+    await logger.append({
+      game_id: request.game_id,
+      player_id: request.player_id,
+      generation: this.game.generation,
+      phase: String(this.game.phase),
+      timestamp: new Date().toISOString(),
+      state: request.state,
+      waitingFor: request.legal_actions[0].payload,
+      input_response: response.input_response,
+      debug: response.debug,
+    });
+
+    try {
+      this.process(response.input_response as unknown as InputResponse);
+    } catch (err) {
+      console.error('AI response processing failed for player', this.id, err);
     }
   }
 

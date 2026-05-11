@@ -132,25 +132,30 @@ async function main() {
         exportPayload.errors = ['No save ids found for game'];
       }
 
-      // Extract game spec from the first version with valid gameOptions
+      // Scan all saves: collect game_spec from the first valid save,
+      // and keep the last save's gameLog (it accumulates all entries).
       let gameSpec: GameSpec | undefined;
+      let lastGameLog: unknown = undefined;
+      let lastSaveId: number = saveIds[saveIds.length - 1] ?? 0;
+
       for (const saveId of saveIds) {
         try {
           const version = await db.getGameVersion(gameId, saveId);
-          exportPayload.saves[saveId.toString()] = version.gameLog;
+          lastGameLog = version.gameLog;
 
-          // Build game_spec from first successful version with valid gameOptions
           if (!gameSpec && version.gameOptions) {
-            gameSpec = buildGameSpec(version.gameOptions, version.players.length, saveIds[saveIds.length - 1], version.createdTimeMs);
-            if (gameSpec) {
-              break;  // Successfully got game spec, can stop early
-            }
+            gameSpec = buildGameSpec(version.gameOptions, version.players.length, lastSaveId, version.createdTimeMs);
           }
         } catch (err) {
           const message = `Failed to read save ${saveId}: ${err instanceof Error ? err.message : err}`;
           console.warn(`${gameId}: ${message}`);
           (exportPayload.errors as Array<string>).push(message);
         }
+      }
+
+      // Store only the final game log (keyed by last save id — complete history)
+      if (lastGameLog !== undefined) {
+        exportPayload.saves[lastSaveId.toString()] = lastGameLog;
       }
 
       if (gameSpec) {
