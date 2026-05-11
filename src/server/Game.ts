@@ -82,6 +82,7 @@ import {IStandardProjectCard} from './cards/IStandardProjectCard';
 import {BoardName} from '../common/boards/BoardName';
 import {SpaceType} from '../common/boards/SpaceType';
 import {ICard} from './cards/ICard';
+import {TrainingLogger} from './ai/TrainingLogger';
 
 // Can be overridden by tests
 
@@ -1080,6 +1081,22 @@ export class Game implements IGame, Logger {
     });
 
     Database.getInstance().saveGameResults(this.id, this.players.length, this.generation, this.gameOptions, scores);
+
+    const sortedByVP = [...this.players]
+      .map((p) => ({player: p, vp: p.getVictoryPoints().total}))
+      .sort((a, b) => b.vp - a.vp);
+    const logger = new TrainingLogger();
+    void logger.writeResult(this.id, {
+      endGeneration: this.generation,
+      playerResults: sortedByVP.map((entry, idx) => ({
+        playerId: entry.player.id,
+        name: entry.player.name,
+        tr: entry.player.terraformRating,
+        vp_total: entry.vp,
+        rank: idx + 1,
+      })),
+    });
+
     this.phase = Phase.END;
     const gameLoader = GameLoader.getInstance();
     await gameLoader.saveGame(this);

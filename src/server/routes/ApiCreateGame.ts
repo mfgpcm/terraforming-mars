@@ -17,6 +17,7 @@ import {Request} from '../Request';
 import {Response} from '../Response';
 import {QuotaConfig, QuotaHandler} from '../server/QuotaHandler';
 import {durationToMilliseconds} from '../utils/durations';
+import {TrainingLogger} from '../ai/TrainingLogger';
 
 function getQuotaConfig(): QuotaConfig {
   const defaultQuota = {limit: 1, perMs: 1}; // Effectively, no limit.
@@ -72,6 +73,39 @@ export class ApiCreateGame extends Handler {
       });
     }
     return [board];
+  }
+
+  public static enabledExpansions(opts: GameOptions): Array<string> {
+    const flags: Array<[boolean, string]> = [
+      [opts.corporateEra, 'corpEra'],
+      [opts.promoCardsOption, 'promo'],
+      [opts.venusNextExtension, 'venus'],
+      [opts.coloniesExtension, 'colonies'],
+      [opts.preludeExtension, 'prelude'],
+      [opts.prelude2Expansion, 'prelude2'],
+      [opts.turmoilExtension, 'turmoil'],
+      [opts.communityCardsOption, 'community'],
+      [opts.aresExtension, 'ares'],
+      [opts.moonExpansion, 'moon'],
+      [opts.pathfindersExpansion, 'pathfinders'],
+      [opts.ceoExtension, 'ceo'],
+      [opts.starWarsExpansion, 'starwars'],
+      [opts.underworldExpansion, 'underworld'],
+    ];
+    return flags.filter(([on]) => on).map(([, name]) => name);
+  }
+
+  public static enabledVariants(opts: GameOptions): Record<string, boolean> {
+    return {
+      draftVariant: opts.draftVariant,
+      initialDraftVariant: opts.initialDraftVariant,
+      preludeDraftVariant: opts.preludeDraftVariant,
+      ceosDraftVariant: opts.ceosDraftVariant,
+      soloTR: opts.soloTR,
+      shuffleMapOption: opts.shuffleMapOption,
+      undoOption: opts.undoOption,
+      fastModeOption: opts.fastModeOption,
+    };
   }
 
   // TODO(kberg): much of this code can be moved outside of handler, and that
@@ -177,6 +211,20 @@ export class ApiCreateGame extends Handler {
             game = Game.newInstance(gameId, players, players[firstPlayerIdx], gameOptions, seed, spectatorId);
           }
           ctx.gameLoader.add(game);
+
+          const logger = new TrainingLogger();
+          void logger.writeMeta({
+            game_id: game.id,
+            game_spec: {
+              board_name: gameOptions.boardName,
+              player_count: players.length,
+              created_at: new Date().toISOString(),
+              expansions: ApiCreateGame.enabledExpansions(gameOptions),
+              variants: ApiCreateGame.enabledVariants(gameOptions),
+            },
+            players: players.map((p) => ({playerId: p.id, name: p.name, isAI: p.isAI})),
+          });
+
           responses.writeJson(res, ctx, Server.getSimpleGameModel(game));
         } catch (error) {
           responses.internalServerError(req, res, error);

@@ -185,6 +185,10 @@ export class Player implements IPlayer {
 
   public user?: DiscordId;
 
+  // Plan B: pending training record captured in setWaitingFor, completed in process()
+  private pendingTrainingState: {step: number; state: Record<string, unknown>; waitingFor: unknown} | undefined = undefined;
+  private trainingStepCounter: number = 0;
+
   public get megaCredits(): number {
     return this.stock.megacredits;
   }
@@ -1687,12 +1691,33 @@ export class Player implements IPlayer {
     this.waitingForCb = undefined;
     try {
       this.timer.stop();
+      this.logTrainingTurn(input);
       this.defer(waitingFor.process(input, this));
       waitingForCb();
     } catch (err) {
       this.setWaitingFor(waitingFor, waitingForCb);
       throw err;
     }
+  }
+
+  private logTrainingTurn(input: InputResponse): void {
+    const pending = this.pendingTrainingState;
+    this.pendingTrainingState = undefined;
+    if (pending === undefined) {
+      return;
+    }
+    const logger = new TrainingLogger();
+    void logger.appendTurn(this.game.id, {
+      step: pending.step,
+      playerId: this.id,
+      generation: this.game.generation,
+      phase: String(this.game.phase),
+      timestamp: new Date().toISOString(),
+      state: pending.state,
+      waitingFor: pending.waitingFor,
+      input_response: input,
+      is_human: !this.isAI,
+    });
   }
 
   public getWaitingFor(): PlayerInput | undefined {
@@ -1712,6 +1737,13 @@ export class Player implements IPlayer {
     this.waitingFor = input;
     this.waitingForCb = cb;
     this.game.inputsThisRound++;
+
+    const state = buildAiRequestState(this.game as Game, this);
+    this.pendingTrainingState = {
+      step: this.trainingStepCounter++,
+      state,
+      waitingFor: state.waitingFor,
+    };
 
     if (this.isAI) {
       void this.requestAiMove();
@@ -1742,13 +1774,31 @@ export class Player implements IPlayer {
     }
   }
 
+  private aiFallbackResponse(): InputResponse | undefined {
+    const waitingFor = this.waitingFor;
+    if (waitingFor === undefined) {
+      return undefined;
+    }
+    if (waitingFor instanceof OrOptions) {
+      // Pick the last option that is a SelectOption (commonly "Pass")
+      const options = waitingFor.options;
+      for (let i = options.length - 1; i >= 0; i--) {
+        if (options[i].type === 'option') {
+          return {type: 'or', index: i, response: {type: 'option'}};
+        }
+      }
+      // Fall back to first option with a 'option' response as best effort
+      return {type: 'or', index: 0, response: {type: 'option'}};
+    }
+    return undefined;
+  }
+
   private async requestAiMove(): Promise<void> {
     if (!this.isAI || this.waitingFor === undefined) {
       return;
     }
 
     const client = new AiClient();
-    const logger = new TrainingLogger();
     const state = buildAiRequestState(this.game as Game, this);
     const request: MoveRequestPayload = {
       game_id: this.game.id,
@@ -1767,33 +1817,33 @@ export class Player implements IPlayer {
       },
     };
 
+    let inputResponse: InputResponse | undefined;
+
     let response: MoveResponsePayload | undefined;
     try {
       response = await client.requestMove(request);
     } catch (error) {
       console.error('AI request failed for player', this.id, error);
-      return;
     }
 
-    if (response?.input_response === undefined) {
-      console.warn('AI response missing input_response for player', this.id, 'game', this.game.id);
-      return;
+    if (response?.input_response !== undefined) {
+      inputResponse = response.input_response as unknown as InputResponse;
+    } else {
+      if (response === undefined) {
+        console.warn('AI request failed, using fallback for player', this.id, 'game', this.game.id);
+      } else {
+        console.warn('AI response missing input_response, using fallback for player', this.id, 'game', this.game.id);
+      }
+      inputResponse = this.aiFallbackResponse();
     }
 
-    await logger.append({
-      game_id: request.game_id,
-      player_id: request.player_id,
-      generation: this.game.generation,
-      phase: String(this.game.phase),
-      timestamp: new Date().toISOString(),
-      state: request.state,
-      waitingFor: request.legal_actions[0].payload,
-      input_response: response.input_response,
-      debug: response.debug,
-    });
+    if (inputResponse === undefined) {
+      console.error('No fallback available for AI player', this.id, 'input type', this.waitingFor?.type);
+      return;
+    }
 
     try {
-      this.process(response.input_response as unknown as InputResponse);
+      this.process(inputResponse);
     } catch (err) {
       console.error('AI response processing failed for player', this.id, err);
     }

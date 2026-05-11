@@ -50,6 +50,7 @@ describe('ApiGame', () => {
           {
             'color': 'black',
             'id': 'p-black-id',
+            'isAI': false,
             'name': 'player-black',
           },
         ],
