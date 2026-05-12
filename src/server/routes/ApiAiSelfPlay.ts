@@ -11,6 +11,8 @@ import {ApiCreateGame} from './ApiCreateGame';
 import {safeCast, isGameId, isSpectatorId, isPlayerId} from '../../common/Types';
 import {generateRandomId} from '../utils/server-ids';
 import {IPlayer} from '../IPlayer';
+import {InputError} from '../inputs/InputError';
+import {statusCode} from '../../common/http/statusCode';
 import {Request} from '../Request';
 import {Response} from '../Response';
 
@@ -101,7 +103,18 @@ export class ApiAiStep extends Handler {
           }
 
           const player = game.getPlayerById(player_id) as Player;
-          player.process(input_response);
+          try {
+            player.process(input_response);
+          } catch (e) {
+            if (e instanceof InputError || e instanceof Error) {
+              res.writeHead(statusCode.badRequest, {'Content-Type': 'application/json'});
+              res.write(JSON.stringify({error: e instanceof Error ? e.message : String(e)}));
+              res.end();
+              resolve();
+              return;
+            }
+            throw e;
+          }
 
           if (game.phase === Phase.END) {
             const sortedByVP = [...game.players]
