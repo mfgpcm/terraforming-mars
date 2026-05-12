@@ -1746,7 +1746,7 @@ export class Player implements IPlayer {
       waitingFor: state.waitingFor,
     };
 
-    if (this.isAI && !this._aiMoveInProgress) {
+    if (this.isAI && !this._aiMoveInProgress && !this.game.isSelfPlay) {
       console.log('AI setWaitingFor triggering requestAiMove for', this.id, 'wf.type:', input.type);
       void this.requestAiMove();
     }

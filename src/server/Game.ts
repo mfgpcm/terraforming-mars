@@ -111,6 +111,7 @@ export class Game implements IGame, Logger {
   public undoCount: number = 0; // Each undo increases it
   public inputsThisRound = 0;
   public resettable: boolean = false;
+  public isSelfPlay: boolean = false;
   public globalsPerGeneration: Array<Partial<Record<GlobalParameter, number>>> = [];
 
   public generation: number = 1;
@@ -251,7 +252,8 @@ export class Game implements IGame, Logger {
     firstPlayer: IPlayer,
     options: Partial<GameOptions> = {},
     seed = 0,
-    spectatorId: SpectatorId | undefined = undefined): Game {
+    spectatorId: SpectatorId | undefined = undefined,
+    isSelfPlay = false): Game {
     if (options.expansions === undefined) {
       options.expansions = {
         corpera: options.corporateEra ?? false,
@@ -424,6 +426,7 @@ export class Game implements IGame, Logger {
 
     game.log('Generation ${0}', (b) => b.forNewGeneration().number(game.generation));
 
+    game.isSelfPlay = isSelfPlay;
     game.gotoInitialPhase();
 
     return game;
