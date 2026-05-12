@@ -1747,6 +1747,7 @@ export class Player implements IPlayer {
     };
 
     if (this.isAI && !this._aiMoveInProgress) {
+      console.log('AI setWaitingFor triggering requestAiMove for', this.id, 'wf.type:', input.type);
       void this.requestAiMove();
     }
   }
@@ -1798,6 +1799,7 @@ export class Player implements IPlayer {
     if (!this.isAI || this.waitingFor === undefined) {
       return;
     }
+    console.log('AI requestAiMove start', this.id, 'wf.type:', this.waitingFor.type);
 
     const client = new AiClient();
     const state = buildAiRequestState(this.game as Game, this);
@@ -1844,8 +1846,10 @@ export class Player implements IPlayer {
     }
 
     this._aiMoveInProgress = true;
+    let processedSuccessfully = false;
     try {
       this.process(inputResponse);
+      processedSuccessfully = true;
     } catch (err) {
       console.error('AI response processing failed for player', this.id, err);
       // process() restored waitingFor; try the safe fallback response now
@@ -1853,12 +1857,18 @@ export class Player implements IPlayer {
       if (fallbackResponse !== undefined) {
         try {
           this.process(fallbackResponse);
+          processedSuccessfully = true;
         } catch (fallbackErr) {
           console.error('Fallback response also failed for player', this.id, fallbackErr);
         }
       }
     } finally {
       this._aiMoveInProgress = false;
+      // If process() set a new waitingFor (e.g. next phase/turn), re-trigger.
+      // Only when successful — avoids infinite loop if both process attempts failed.
+      if (processedSuccessfully && this.waitingFor !== undefined) {
+        void this.requestAiMove();
+      }
     }
   }
 
