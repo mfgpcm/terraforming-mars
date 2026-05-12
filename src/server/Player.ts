@@ -188,6 +188,7 @@ export class Player implements IPlayer {
   // Plan B: pending training record captured in setWaitingFor, completed in process()
   private pendingTrainingState: {step: number; state: Record<string, unknown>; waitingFor: unknown} | undefined = undefined;
   private trainingStepCounter: number = 0;
+  private _aiMoveInProgress: boolean = false;
 
   public get megaCredits(): number {
     return this.stock.megacredits;
@@ -1745,7 +1746,7 @@ export class Player implements IPlayer {
       waitingFor: state.waitingFor,
     };
 
-    if (this.isAI) {
+    if (this.isAI && !this._aiMoveInProgress) {
       void this.requestAiMove();
     }
   }
@@ -1842,10 +1843,22 @@ export class Player implements IPlayer {
       return;
     }
 
+    this._aiMoveInProgress = true;
     try {
       this.process(inputResponse);
     } catch (err) {
       console.error('AI response processing failed for player', this.id, err);
+      // process() restored waitingFor; try the safe fallback response now
+      const fallbackResponse = this.aiFallbackResponse();
+      if (fallbackResponse !== undefined) {
+        try {
+          this.process(fallbackResponse);
+        } catch (fallbackErr) {
+          console.error('Fallback response also failed for player', this.id, fallbackErr);
+        }
+      }
+    } finally {
+      this._aiMoveInProgress = false;
     }
   }
 
