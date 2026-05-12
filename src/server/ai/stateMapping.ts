@@ -35,7 +35,7 @@ function buildPlayerSnapshot(p: IPlayer): Record<string, unknown> {
       heat: p.production.heat,
       energy: p.production.energy,
     },
-    tags: p.tags.countAllTags(),
+    tags: Object.fromEntries(Object.entries(p.tags.countAllTags()).map(([k, v]) => [k, v ?? 0])),
     isAI: p.isAI,
     playedCards: Array.from(p.playedCards).map((c) => c.name),
     corporations: p.playedCards.corporations().map((c) => c.name),
