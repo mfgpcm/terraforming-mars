@@ -17,15 +17,14 @@ export type AiMoveRequestState = {
   waitingFor?: PlayerInputModel;
 };
 
-function getCardResourceTotals(p: IPlayer): Record<string, number> {
-  const totals: Record<string, number> = {};
+function getCardResourcesByCard(p: IPlayer): Record<string, number> {
+  const result: Record<string, number> = {};
   for (const card of p.tableau) {
     if (card.resourceType !== undefined && card.resourceCount > 0) {
-      const key = card.resourceType as string;
-      totals[key] = (totals[key] ?? 0) + card.resourceCount;
+      result[card.name] = card.resourceCount;
     }
   }
-  return totals;
+  return result;
 }
 
 function buildPlayerSnapshot(p: IPlayer): Record<string, unknown> {
@@ -54,7 +53,7 @@ function buildPlayerSnapshot(p: IPlayer): Record<string, unknown> {
     playedCards: Array.from(p.playedCards).map((c) => c.name),
     playedCardCount: p.playedCards.length,
     corporations: p.playedCards.corporations().map((c) => c.name),
-    cardResources: getCardResourceTotals(p),
+    cardResources: getCardResourcesByCard(p),
   };
 }
 
