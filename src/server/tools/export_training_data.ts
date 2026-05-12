@@ -17,6 +17,7 @@ require('dotenv').config();
 
 import {mkdirSync, writeFileSync, appendFileSync} from 'fs';
 import {join} from 'path';
+import {globalInitialize} from '../globalInitialize';
 import {Database} from '../database/Database';
 import {GameId} from '../../common/Types';
 import {Game} from '../Game';
@@ -67,6 +68,117 @@ function buildGameSpec(gameOptions: GameOptions, playerCount: number): Record<st
       soloTR: gameOptions.soloTR,
     },
   };
+}
+
+// Log message data type constants (mirrors LogMessageDataType enum)
+const LOG_PLAYER = 2;
+const LOG_CARD = 3;
+const LOG_AWARD = 4;
+const LOG_MILESTONE = 5;
+
+type LogEntry = {
+  message: string;
+  data?: Array<{type: number; value: string}>;
+};
+
+// Extract new log messages added between save N and save N+1.
+function diffGameLogs(
+  rawN: Record<string, unknown>,
+  rawN1: Record<string, unknown>,
+): Array<LogEntry> {
+  const logsN = (rawN.gameLog as Array<unknown>) ?? [];
+  const logsN1 = (rawN1.gameLog as Array<unknown>) ?? [];
+  return logsN1.slice(logsN.length) as Array<LogEntry>;
+}
+
+// Resolve title from string | Message to a plain string.
+function resolveTitle(title: unknown): string {
+  if (typeof title === 'string') return title;
+  if (title && typeof title === 'object') {
+    return (title as {message?: string}).message ?? '';
+  }
+  return '';
+}
+
+// Infer input_response for action-phase (OrOptions) turns using game log messages.
+// Returns null if a matching option cannot be found.
+function inferResponseFromLogs(
+  wfModel: Record<string, unknown>,
+  newLogs: Array<LogEntry>,
+  activePlayerColor: string,
+): Record<string, unknown> | null {
+  if (wfModel.type !== 'or') return null;
+
+  const options = (wfModel.options as Array<Record<string, unknown>>) ?? [];
+
+  // Only consider messages attributed to this player.
+  const playerLogs = newLogs.filter((entry) =>
+    entry.data?.some((d) => d.type === LOG_PLAYER && d.value === activePlayerColor),
+  );
+  if (playerLogs.length === 0) return null;
+
+  for (const log of playerLogs) {
+    const msg = log.message;
+    const cardName = log.data?.find((d) => d.type === LOG_CARD)?.value;
+    const milestoneName = log.data?.find((d) => d.type === LOG_MILESTONE)?.value;
+    const awardName = log.data?.find((d) => d.type === LOG_AWARD)?.value;
+
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
+      const title = resolveTitle(opt.title).toLowerCase();
+
+      // Played a project card
+      if (msg.includes('played') && cardName && opt.type === 'projectCard') {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Used a card action (not a standard project)
+      if ((msg === '${0} used ${1} action' || msg === '${0} used ${1} action with ${2}') &&
+          cardName && (title.includes('perform an action') || title.includes('action from'))) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Used a standard project (message says "standard project" or "standard action")
+      if ((msg.includes('standard project') || msg.includes('standard action')) &&
+          title.includes('standard')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Sold patents (special card action with RAW_STRING count, not CARD data)
+      if (msg.includes('sold') && msg.includes('patent') && title.includes('patent')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Passed for this generation
+      if (msg === '${0} passed' && title.includes('pass')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Ended turn (multiplayer mid-round)
+      if (msg === '${0} ended turn' && title.includes('end')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Claimed a milestone
+      if (milestoneName && msg.includes('milestone') && title.includes('milestone')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Funded an award
+      if (awardName && msg.includes('award') && title.includes('award')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+      // Converted plants to greenery — no explicit "plants" in log message;
+      // detect by greenery tile placement WITHOUT a preceding "standard project" message.
+      const isStandardProject = playerLogs.some(
+        (l) => l.message.includes('standard project') || l.message.includes('standard action'),
+      );
+      if (!isStandardProject) {
+        const greeneryData = log.data?.some((d) => d.value === 'greenery tile');
+        if (greeneryData && title.includes('plant')) {
+          return {type: 'or', index: i, response: {type: 'option'}};
+        }
+      }
+      // Converted heat to temperature (no explicit "heat" log; detect by spending heat)
+      if (msg === '${0} spent ${1} energy' && title.includes('heat')) {
+        return {type: 'or', index: i, response: {type: 'option'}};
+      }
+    }
+  }
+  return null;
 }
 
 // Infer the input_response from consecutive raw serialized player snapshots.
@@ -253,7 +365,18 @@ async function processGame(gameId: GameId, saveIds: Array<number>): Promise<numb
     const rawPlayerN1 = rawPlayersN1.find((p) => p.id === activePlayer.id);
     if (!rawPlayerN || !rawPlayerN1) continue;
 
-    const inputResponse = inferResponse(wfType, serializedN.phase, rawPlayerN, rawPlayerN1);
+    let inputResponse = inferResponse(wfType, serializedN.phase, rawPlayerN, rawPlayerN1);
+
+    // For action-phase OrOptions, fall back to log-based inference.
+    if (!inputResponse && wfType === 'or') {
+      const newLogs = diffGameLogs(rawN, rawN1);
+      inputResponse = inferResponseFromLogs(
+        wfModel as unknown as Record<string, unknown>,
+        newLogs,
+        activePlayer.color,
+      );
+    }
+
     if (!inputResponse) continue;
 
     const playerId = activePlayer.id;
@@ -289,6 +412,7 @@ async function processGame(gameId: GameId, saveIds: Array<number>): Promise<numb
 // ---------------------------------------------------------------------------
 
 async function main() {
+  globalInitialize();
   await db.initialize();
   mkdirSync(outputDir, {recursive: true});
   console.log(`Exporting training data to ${outputDir}`);
