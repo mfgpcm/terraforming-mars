@@ -1,4 +1,5 @@
 import {URL} from 'node:url';
+import {Agent, fetch} from 'undici';
 
 export interface LegalAction {
   action_id: string;
@@ -28,8 +29,10 @@ export interface MoveResponsePayload {
 }
 
 const AI_SERVER_URL = process.env.AI_SERVER_URL ?? 'http://localhost:8000';
-const DEFAULT_AI_TIMEOUT_MS = 5000;
+const DEFAULT_AI_TIMEOUT_MS = 600000;
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? DEFAULT_AI_TIMEOUT_MS.toString());
+
+const _agent = new Agent({headersTimeout: AI_TIMEOUT_MS, bodyTimeout: AI_TIMEOUT_MS});
 
 export class AiClient {
   private readonly baseUrl: string;
@@ -51,7 +54,8 @@ export class AiClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: controller.signal,
-      });
+        dispatcher: _agent,
+      } as Parameters<typeof fetch>[1]);
 
       if (!res.ok) {
         throw new Error(`AI server returned status ${res.status}`);
