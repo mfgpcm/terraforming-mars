@@ -15,6 +15,34 @@ import {InputError} from '../inputs/InputError';
 import {statusCode} from '../../common/http/statusCode';
 import {Request} from '../Request';
 import {Response} from '../Response';
+import {RandomMAOptionType} from '../../common/ma/RandomMAOptionType';
+
+// Official boards used for self-play diversity
+const OFFICIAL_BOARDS = [BoardName.THARSIS, BoardName.HELLAS, BoardName.ELYSIUM];
+
+// Player colours and names in order
+const PLAYER_CONFIGS = [
+  {color: 'blue',  name: 'AI-Blue'},
+  {color: 'red',   name: 'AI-Red'},
+  {color: 'green', name: 'AI-Green'},
+  {color: 'yellow', name: 'AI-Yellow'},
+] as const;
+
+function randomSelfPlayConfig(override?: {boardName?: BoardName; playerCount?: number}): {
+  boardName: BoardName;
+  playerCount: number;
+  withPromo: boolean;
+} {
+  // 80% chance of 2 players, 10% chance of 3, 10% chance of 4
+  let playerCount = override?.playerCount ?? 2;
+  if (!override?.playerCount) {
+    const r = Math.random();
+    playerCount = r < 0.80 ? 2 : r < 0.90 ? 3 : 4;
+  }
+  const boardName = override?.boardName ?? OFFICIAL_BOARDS[Math.floor(Math.random() * OFFICIAL_BOARDS.length)];
+  const withPromo = Math.random() < 0.20;
+  return {boardName, playerCount, withPromo};
+}
 
 export class ApiAiNewGame extends Handler {
   public static readonly INSTANCE = new ApiAiNewGame();
@@ -26,20 +54,33 @@ export class ApiAiNewGame extends Handler {
       req.once('end', async () => {
         try {
           const config = body ? JSON.parse(body) : {};
-          const boardName: BoardName = config.boardName ?? BoardName.THARSIS;
           const logDir: string | undefined = config.logDir;
+          const {boardName, playerCount, withPromo} = randomSelfPlayConfig({
+            boardName: config.boardName,
+            playerCount: config.playerCount,
+          });
 
           const gameId = safeCast(generateRandomId('g'), isGameId);
           const spectatorId = safeCast(generateRandomId('s'), isSpectatorId);
 
-          const players = [
-            new Player('AI-Blue', 'blue', false, 0, safeCast(generateRandomId('p'), isPlayerId), true),
-            new Player('AI-Red', 'red', false, 0, safeCast(generateRandomId('p'), isPlayerId), true),
-          ];
+          const players = PLAYER_CONFIGS.slice(0, playerCount).map(
+            ({color, name}) => new Player(name, color as 'blue' | 'red' | 'green' | 'yellow', false, 0,
+              safeCast(generateRandomId('p'), isPlayerId), true),
+          );
 
           const game = Game.newInstance(
             gameId, players, players[0],
-            {boardName, corporateEra: true},
+            {
+              boardName,
+              corporateEra: true,
+              venusNextExtension: true,
+              preludeExtension: true,
+              prelude2Expansion: true,
+              promoCardsOption: withPromo,
+              solarPhaseOption: false,
+              fastModeOption: true,
+              randomMA: RandomMAOptionType.UNLIMITED,
+            },
             Math.random(), spectatorId,
             /* isSelfPlay */ true,
           );

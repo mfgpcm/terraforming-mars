@@ -115,6 +115,7 @@ export type AiMoveRequestState = {
   player: Record<string, unknown>;
   opponents: Array<Record<string, unknown>>;
   board: Array<Record<string, unknown>>;
+  boardSpaces: Array<Record<string, unknown>>;
   milestones: Array<Record<string, unknown>>;
   awards: Array<Record<string, unknown>>;
   boardTilesSelf?: Record<string, number>;
@@ -138,6 +139,7 @@ function buildPlayerSnapshot(p: IPlayer): Record<string, unknown> {
     name: p.name,
     color: p.color,
     terraformRating: p.terraformRating,
+    victoryPoints: p.getVictoryPoints().total,
     megacredits: p.megaCredits,
     steel: p.steel,
     titanium: p.titanium,
@@ -172,6 +174,26 @@ function buildBoardState(game: Game): Array<Record<string, unknown>> {
       tileType: space.tile?.tileType ?? null,
       playerColor: space.player?.color ?? null,
     }));
+}
+
+function buildAllBoardSpaces(game: Game): Array<Record<string, unknown>> {
+  return game.board.spaces
+    .filter((space) => space.spaceType !== SpaceType.COLONY && space.x >= 0)
+    .map((space) => {
+      const entry: Record<string, unknown> = {
+        id: space.id,
+        x: space.x,
+        y: space.y,
+        t: space.spaceType,
+        b: space.bonus.map((b) => SPACE_BONUS_NAMES[b as number] ?? `bonus-${b}`),
+      };
+      if (space.volcanic) entry.v = true;
+      if (space.tile !== undefined) {
+        entry.tile = space.tile.tileType;
+        entry.pc = space.player?.color ?? null;
+      }
+      return entry;
+    });
 }
 
 function countBoardTiles(
@@ -241,6 +263,7 @@ export function buildAiRequestState(game: Game, player: Player): AiMoveRequestSt
       return {...opp, boardTiles: tiles};
     }),
     board,
+    boardSpaces: buildAllBoardSpaces(game),
     milestones: game.claimedMilestones.map((cm) => ({
       name: cm.milestone.name,
       playerId: cm.player.id,
