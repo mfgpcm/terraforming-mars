@@ -5,6 +5,74 @@ import {Game} from '../Game';
 import {SpaceType} from '../../common/boards/SpaceType';
 import {TileType} from '../../common/TileType';
 import {GameOptions} from '../game/GameOptions';
+import {LogMessage} from '../../common/logs/LogMessage';
+import {LogMessageDataType} from '../../common/logs/LogMessageDataType';
+import {LogMessageType} from '../../common/logs/LogMessageType';
+
+// Human-readable names for tile types (numeric enum values)
+const TILE_TYPE_NAMES: Record<number, string> = {
+  0: 'greenery', 1: 'ocean', 2: 'city', 3: 'Capital', 4: 'Commercial District',
+  5: 'Ecological Zone', 6: 'Industrial Center', 7: 'Lava Flows', 8: 'Mining Area',
+  9: 'Mining Rights', 10: 'Mohole Area', 11: 'Natural Preserve', 12: 'Nuclear Zone',
+  13: 'Restricted Area', 14: 'Deimos Down', 15: 'Great Dam', 16: 'Magnetic Field Gen.',
+  17: 'Biofertilizer', 18: 'Metallic Asteroid', 19: 'Solar Farm',
+  20: 'Ocean City', 21: 'Ocean Farm', 22: 'Ocean Sanctuary',
+};
+
+const SPACE_BONUS_NAMES: Record<number, string> = {
+  0: 'titanium', 1: 'steel', 2: 'plant', 3: 'card', 4: 'heat',
+  5: 'ocean', 6: 'MC', 7: 'animal', 8: 'microbe', 9: 'energy',
+  10: 'data', 11: 'science', 12: 'energy production', 13: 'temperature',
+};
+
+function serializeLogMessage(msg: LogMessage, players: readonly IPlayer[]): string {
+  let text = msg.message;
+  for (let i = 0; i < msg.data.length; i++) {
+    const d = msg.data[i];
+    let val: string;
+    switch (d.type) {
+      case LogMessageDataType.PLAYER: {
+        const p = players.find((p) => p.color === String(d.value));
+        val = p?.name ?? String(d.value);
+        break;
+      }
+      case LogMessageDataType.TILE_TYPE:
+        val = TILE_TYPE_NAMES[Number(d.value)] ?? `tile-${d.value}`;
+        break;
+      case LogMessageDataType.SPACE_BONUS:
+        val = SPACE_BONUS_NAMES[Number(d.value)] ?? String(d.value);
+        break;
+      case LogMessageDataType.SPACE:
+        val = `hex-${d.value}`;
+        break;
+      case LogMessageDataType.CARDS:
+        val = Array.isArray(d.value) ? (d.value as string[]).join(', ') : String(d.value);
+        break;
+      default:
+        val = String(d.value);
+    }
+    text = text.replace(`\${${i}}`, val);
+  }
+  return text;
+}
+
+function getRecentLog(game: Game, player: Player): string[] {
+  const messages = game.gameLog;
+  // Find the start of the current generation
+  let genStart = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].type === LogMessageType.NEW_GENERATION) {
+      genStart = i + 1;
+      break;
+    }
+  }
+  // Take from current generation start, but cap at last 60 messages
+  const startIdx = Math.max(genStart, messages.length - 60);
+  return messages
+    .slice(startIdx)
+    .filter((msg) => msg.playerId === undefined || msg.playerId === player.id)
+    .map((msg) => serializeLogMessage(msg, game.players));
+}
 
 function getActiveExpansions(opts: Readonly<GameOptions>): string[] {
   const active: string[] = [];
@@ -160,10 +228,12 @@ export function buildAiRequestState(game: Game, player: Player): AiMoveRequestSt
       availableMilestones: game.milestones.map((m) => ({name: m.name, description: m.description})),
       availableAwards: game.awards.map((a) => ({name: a.name, description: a.description})),
       gameVariants: getGameVariants(game.gameOptions),
+      recentLog: getRecentLog(game, player),
     },
     player: {
       ...buildPlayerSnapshot(player),
       boardTiles: selfTiles,
+      cardsInHand: player.cardsInHand.map((c) => c.name),
     },
     opponents: opponents.map((opp, i) => {
       const oppColor = oppColors[i] ?? null;
