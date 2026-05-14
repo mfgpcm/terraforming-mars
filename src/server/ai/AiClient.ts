@@ -16,6 +16,7 @@ export interface MoveRequestPayload {
   metadata: {
     schema_version: number;
   };
+  last_error?: string;
 }
 
 export interface MoveResponsePayload {

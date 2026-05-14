@@ -1795,7 +1795,7 @@ export class Player implements IPlayer {
     return undefined;
   }
 
-  private async requestAiMove(): Promise<void> {
+  private async requestAiMove(lastError?: string, retryCount: number = 0): Promise<void> {
     if (!this.isAI || this.waitingFor === undefined) {
       return;
     }
@@ -1818,6 +1818,7 @@ export class Player implements IPlayer {
       metadata: {
         schema_version: 1,
       },
+      ...(lastError !== undefined ? {last_error: lastError} : {}),
     };
 
     let inputResponse: InputResponse | undefined;
@@ -1847,26 +1848,33 @@ export class Player implements IPlayer {
 
     this._aiMoveInProgress = true;
     let processedSuccessfully = false;
+    let retryWithError: string | undefined;
     try {
       this.process(inputResponse);
       processedSuccessfully = true;
     } catch (err) {
-      console.error('AI response processing failed for player', this.id, err);
-      // process() restored waitingFor; try the safe fallback response now
-      const fallbackResponse = this.aiFallbackResponse();
-      if (fallbackResponse !== undefined) {
-        try {
-          this.process(fallbackResponse);
-          processedSuccessfully = true;
-        } catch (fallbackErr) {
-          console.error('Fallback response also failed for player', this.id, fallbackErr);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('AI response processing failed for player', this.id, errMsg);
+      if (retryCount < 2) {
+        // Feed the error back to the AI and retry (max 2 retries total)
+        retryWithError = errMsg;
+      } else {
+        // Max retries exhausted — use safe fallback
+        const fallbackResponse = this.aiFallbackResponse();
+        if (fallbackResponse !== undefined) {
+          try {
+            this.process(fallbackResponse);
+            processedSuccessfully = true;
+          } catch (fallbackErr) {
+            console.error('Fallback response also failed for player', this.id, fallbackErr);
+          }
         }
       }
     } finally {
       this._aiMoveInProgress = false;
-      // If process() set a new waitingFor (e.g. next phase/turn), re-trigger.
-      // Only when successful — avoids infinite loop if both process attempts failed.
-      if (processedSuccessfully && this.waitingFor !== undefined) {
+      if (retryWithError !== undefined) {
+        void this.requestAiMove(retryWithError, retryCount + 1);
+      } else if (processedSuccessfully && this.waitingFor !== undefined) {
         void this.requestAiMove();
       }
     }
