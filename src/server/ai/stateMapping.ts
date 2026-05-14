@@ -20,6 +20,28 @@ function getActiveExpansions(opts: Readonly<GameOptions>): string[] {
   return active;
 }
 
+function getGameVariants(opts: Readonly<GameOptions>): Record<string, unknown> {
+  const v: Record<string, unknown> = {};
+  if (opts.draftVariant) v['draftVariant'] = true;
+  if (opts.initialDraftVariant) v['initialDraftVariant'] = true;
+  if (opts.preludeDraftVariant) v['preludeDraftVariant'] = true;
+  if (opts.ceosDraftVariant) v['ceosDraftVariant'] = true;
+  if (opts.twoCorpsVariant) v['twoCorpsVariant'] = true;
+  if (opts.solarPhaseOption) v['solarPhaseOption'] = true;
+  if (opts.soloTR) v['soloTR'] = true;
+  if (opts.randomMA !== 'No randomization') v['randomMA'] = opts.randomMA;
+  if (opts.requiresVenusTrackCompletion) v['requiresVenusTrackCompletion'] = true;
+  if (opts.requiresMoonTrackCompletion) v['requiresMoonTrackCompletion'] = true;
+  if (opts.politicalAgendasExtension !== 'Standard') v['politicalAgendasExtension'] = opts.politicalAgendasExtension;
+  if (opts.removeNegativeGlobalEventsOption) v['removeNegativeGlobalEventsOption'] = true;
+  if (opts.startingCorporations !== 2) v['startingCorporations'] = opts.startingCorporations;
+  if (opts.startingPreludes !== 4) v['startingPreludes'] = opts.startingPreludes;
+  if (opts.startingCeos !== 3) v['startingCeos'] = opts.startingCeos;
+  if (opts.altVenusBoard) v['altVenusBoard'] = true;
+  if (opts.modularMA) v['modularMA'] = true;
+  return v;
+}
+
 export type AiMoveRequestState = {
   game: Record<string, unknown>;
   player: Record<string, unknown>;
@@ -135,6 +157,9 @@ export function buildAiRequestState(game: Game, player: Player): AiMoveRequestSt
       oceanCount: game.board.getOceanSpaces().length,
       boardName: game.gameOptions.boardName,
       expansions: getActiveExpansions(game.gameOptions),
+      availableMilestones: game.milestones.map((m) => ({name: m.name, description: m.description})),
+      availableAwards: game.awards.map((a) => ({name: a.name, description: a.description})),
+      gameVariants: getGameVariants(game.gameOptions),
     },
     player: {
       ...buildPlayerSnapshot(player),
