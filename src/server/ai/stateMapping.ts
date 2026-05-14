@@ -4,6 +4,21 @@ import {Player} from '../Player';
 import {Game} from '../Game';
 import {SpaceType} from '../../common/boards/SpaceType';
 import {TileType} from '../../common/TileType';
+import {GameOptions} from '../game/GameOptions';
+
+function getActiveExpansions(opts: Readonly<GameOptions>): string[] {
+  const active: string[] = [];
+  if (opts.venusNextExtension) active.push('venus');
+  if (opts.coloniesExtension) active.push('colonies');
+  if (opts.preludeExtension) active.push('prelude');
+  if (opts.prelude2Expansion) active.push('prelude2');
+  if (opts.turmoilExtension) active.push('turmoil');
+  if (opts.moonExpansion) active.push('moon');
+  if (opts.pathfindersExpansion) active.push('pathfinders');
+  if (opts.underworldExpansion) active.push('underworld');
+  if (opts.aresExtension) active.push('ares');
+  return active;
+}
 
 export type AiMoveRequestState = {
   game: Record<string, unknown>;
@@ -118,6 +133,8 @@ export function buildAiRequestState(game: Game, player: Player): AiMoveRequestSt
       oxygen: game.getOxygenLevel(),
       temperature: game.getTemperature(),
       oceanCount: game.board.getOceanSpaces().length,
+      boardName: game.gameOptions.boardName,
+      expansions: getActiveExpansions(game.gameOptions),
     },
     player: {
       ...buildPlayerSnapshot(player),
