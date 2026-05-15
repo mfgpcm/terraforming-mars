@@ -465,8 +465,13 @@
                                                   </label>
 
                                                   <label class="form-switch form-inline create-game-beginner-option-label">
-                                                      <input type="checkbox" v-model="newPlayer.isAI">
+                                                      <input type="checkbox" v-model="newPlayer.isAI" @change="newPlayer.isAI && (newPlayer.aiTrainer = false)">
                                                       <i class="form-icon"></i> <span v-i18n>AI player?</span>
+                                                  </label>
+
+                                                  <label class="form-switch form-inline create-game-beginner-option-label">
+                                                      <input type="checkbox" v-model="newPlayer.aiTrainer" :disabled="newPlayer.isAI">
+                                                      <i class="form-icon"></i> <span v-i18n>AI Trainer?</span>
                                                   </label>
 
                                                   <label class="form-label">
@@ -944,7 +949,8 @@ export default defineComponent({
       this.players.forEach((player) => {
         if (player.name === '') {
           if (player.isAI) {
-            player.name = this.$t('AI');
+            const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+            player.name = 'AI ' + colorCap;
           } else if (isSoloMode) {
             player.name = this.$t('You');
           } else {

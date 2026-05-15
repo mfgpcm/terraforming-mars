@@ -2,6 +2,7 @@
   <div class="ai-trainer-chat">
     <div class="ai-trainer-header">
       <span class="ai-trainer-title">🤖 AI Trainer</span>
+      <button class="ai-trainer-close-btn" @click="$emit('close')" title="Close AI Trainer">✕</button>
     </div>
 
     <div class="ai-trainer-messages" ref="messageList">
@@ -54,7 +55,7 @@ export default defineComponent({
     playerId: {type: String, required: true},
     waitingForKey: {type: String, required: true},
   },
-  emits: ['action-played'],
+  emits: ['action-played', 'close'],
   data() {
     return {
       messages: [] as ChatMessage[],

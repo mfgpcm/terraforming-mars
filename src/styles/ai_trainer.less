@@ -31,10 +31,12 @@
   background: #1a1a2e;
   color: #e0e0e0;
   border-left: 2px solid #4a4aff;
-  font-size: 13px;
 }
 
 .ai-trainer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 12px;
   background: #4a4aff;
   color: white;
@@ -43,7 +45,22 @@
 }
 
 .ai-trainer-title {
-  font-size: 14px;
+  font-size: inherit;
+}
+
+.ai-trainer-close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.8;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 
 .ai-trainer-messages {
@@ -115,7 +132,7 @@
   border-radius: 4px;
   padding: 4px;
   resize: none;
-  font-size: 12px;
+  font-size: inherit;
 }
 
 .ai-trainer-send-btn {

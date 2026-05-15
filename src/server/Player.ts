@@ -254,6 +254,8 @@ export class Player implements IPlayer {
     alliedPolicy?.onPolicyStartForPlayer?.(this);
   }
 
+  public aiTrainer: boolean = false;
+
   constructor(
     public name: string,
     public color: Color,
@@ -1965,6 +1967,7 @@ export class Player implements IPlayer {
       beginner: this.beginner,
       handicap: this.handicap,
       isAI: this.isAI,
+      aiTrainer: this.aiTrainer,
       timer: this.timer.serialize(),
       // Stats
       actionsTakenThisGame: this.actionsTakenThisGame,
@@ -2007,6 +2010,7 @@ export class Player implements IPlayer {
     player.standardProjectsThisGeneration = new Set(d.standardProjectsThisGeneration);
     player.megaCredits = d.megaCredits;
     player.isAI = Boolean(d.isAI);
+    player.aiTrainer = Boolean(d.aiTrainer);
     player.needsToDraft = d.needsToDraft;
     player.oceanBonus = d.oceanBonus;
     player.plants = d.plants;

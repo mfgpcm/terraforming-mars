@@ -82,4 +82,5 @@ export interface SerializedPlayer extends DeprecatedFields{
   warmongerCards: number;
   withinDeflectionZone: boolean;
   isAI?: boolean;
+  aiTrainer?: boolean;
 }

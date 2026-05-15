@@ -128,7 +128,7 @@ export class ApiCreateGame extends Handler {
           const gameId = safeCast(generateRandomId('g'), isGameId);
           const spectatorId = safeCast(generateRandomId('s'), isSpectatorId);
           const players = gameReq.players.map((obj: any) => {
-            return new Player(
+            const player = new Player(
               obj.name,
               obj.color,
               obj.beginner,
@@ -136,6 +136,8 @@ export class ApiCreateGame extends Handler {
               safeCast(generateRandomId('p'), isPlayerId),
               Boolean(obj.isAI),
             );
+            player.aiTrainer = Boolean(obj.aiTrainer);
+            return player;
           });
           let firstPlayerIdx = 0;
           for (let i = 0; i < gameReq.players.length; i++) {

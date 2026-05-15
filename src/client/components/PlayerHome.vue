@@ -1,5 +1,5 @@
 <template>
-  <div id="player-home" :class="(game.turmoil ? 'with-turmoil': '')">
+  <div id="player-home" :class="(game.turmoil ? 'with-turmoil': '')" :style="aiTrainerVisible && thisPlayer.aiTrainer ? {paddingRight: (trainerWidth + 8) + 'px'} : {}">
     <top-bar :playerView="playerView" />
 
     <div v-if="game.phase === 'end'">
@@ -269,16 +269,17 @@
     <purge-warning :expectedPurgeTimeMs="playerView.game.expectedPurgeTimeMs"></purge-warning>
     <KeyboardShortcuts v-show="keyboardShortcutOpened" @close="keyboardShortcutOpened = false"></KeyboardShortcuts>
 
-    <!-- AI Trainer toggle button (always visible, fixed bottom-right) -->
+    <!-- AI Trainer open button — only when sidebar is closed; ✕ lives in the sidebar header -->
     <button
+      v-if="thisPlayer.aiTrainer && !aiTrainerVisible"
       class="ai-trainer-toggle-btn"
       @click="toggleTrainer"
-      :title="aiTrainerVisible ? 'Hide AI Trainer' : 'Open AI Trainer'"
-    >{{ aiTrainerVisible ? '✕' : '🤖' }}</button>
+      title="Open AI Trainer"
+    >🤖</button>
 
     <!-- AI Trainer sidebar (fixed right panel; toggled per-player) -->
     <div
-      v-if="aiTrainerVisible"
+      v-if="thisPlayer.aiTrainer && aiTrainerVisible"
       class="ai-trainer-sidebar-container"
       :style="{width: trainerWidth + 'px'}"
     >
@@ -292,6 +293,7 @@
         :playerId="playerView.id"
         :waitingForKey="waitingForKey"
         @action-played="onActionPlayed"
+        @close="toggleTrainer"
         style="flex:1; min-height:0;"
       />
     </div>
@@ -364,6 +366,8 @@ export default defineComponent({
   data(): PlayerHomeModel {
     const preferences = getPreferences();
     const trainerKey = TRAINER_VISIBLE_KEY_PREFIX + (this.playerView?.id ?? '');
+    const serverEnabled = this.playerView?.thisPlayer?.aiTrainer === true;
+    const storedVisible = localStorage.getItem(trainerKey);
     return {
       showHand: !preferences.hide_hand,
       showActiveCards: !preferences.hide_active_cards,
@@ -376,7 +380,7 @@ export default defineComponent({
       trainerResizing: false,
       trainerResizeStartX: 0,
       trainerResizeStartWidth: 0,
-      aiTrainerVisible: localStorage.getItem(trainerKey) === 'true',
+      aiTrainerVisible: serverEnabled && (storedVisible === null ? true : storedVisible === 'true'),
     };
   },
   watch: {
