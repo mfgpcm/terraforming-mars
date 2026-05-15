@@ -243,6 +243,11 @@
                                 <span v-i18n>Show timers</span>
                             </label>
 
+                            <input type="checkbox" v-model="aiTrainerEnabled" id="aiTrainer-checkbox">
+                            <label for="aiTrainer-checkbox">
+                                <span v-i18n>AI Trainer (coach sidebar)</span>
+                            </label>
+
                             <input type="checkbox" v-model="escapeVelocityMode" id="escapevelocity-checkbox">
                             <label for="escapevelocity-checkbox">
                                 <div class="create-game-expansion-icon expansion-icon-escape-velocity"></div>
@@ -1208,6 +1213,7 @@ export default defineComponent({
         twoCorpsVariant,
         startingCeos,
         startingPreludes,
+        aiTrainerEnabled: this.aiTrainerEnabled,
       };
       return JSON.stringify(dataToSend, undefined, 4);
     },

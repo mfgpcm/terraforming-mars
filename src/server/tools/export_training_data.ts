@@ -15,7 +15,7 @@
 
 require('dotenv').config();
 
-import {mkdirSync, writeFileSync, appendFileSync} from 'fs';
+import {mkdirSync, writeFileSync, appendFileSync, existsSync} from 'fs';
 import {join} from 'path';
 import {globalInitialize} from '../globalInitialize';
 import {Database} from '../database/Database';
@@ -431,6 +431,13 @@ async function main() {
 
   for (const gameId of gameIds) {
     try {
+      // Skip games whose JSONL already exists — re-exports are idempotent and slow.
+      const outPath = join(outputDir, `${gameId}.jsonl`);
+      if (existsSync(outPath)) {
+        skipped++;
+        continue;
+      }
+
       const saveIds = await db.getSaveIds(gameId);
       if (saveIds.length < 2) {
         skipped++;

@@ -66,11 +66,13 @@ function getRecentLog(game: Game, player: Player): string[] {
       break;
     }
   }
-  // Take from current generation start, but cap at last 60 messages
+  // Take from current generation start, but cap at last 60 messages.
+  // Filter to opponents' moves + system messages — the AI already knows its own moves
+  // from session memory; showing them again wastes tokens and confuses tableau attention.
   const startIdx = Math.max(genStart, messages.length - 60);
   return messages
     .slice(startIdx)
-    .filter((msg) => msg.playerId === undefined || msg.playerId === player.id)
+    .filter((msg) => msg.playerId === undefined || msg.playerId !== player.id)
     .map((msg) => serializeLogMessage(msg, game.players));
 }
 

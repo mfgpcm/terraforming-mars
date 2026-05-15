@@ -29,6 +29,16 @@ export interface MoveResponsePayload {
   };
 }
 
+export interface AdviceRequestPayload extends MoveRequestPayload {
+  user_question?: string;
+}
+
+export interface AdviceResponsePayload {
+  advice_text: string;
+  recommendation: Record<string, unknown>;
+  debug?: Record<string, unknown>;
+}
+
 const AI_SERVER_URL = process.env.AI_SERVER_URL ?? 'http://localhost:8000';
 const DEFAULT_AI_TIMEOUT_MS = 600000;
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? DEFAULT_AI_TIMEOUT_MS.toString());
@@ -45,11 +55,19 @@ export class AiClient {
   }
 
   public async requestMove(payload: MoveRequestPayload): Promise<MoveResponsePayload> {
+    return this._post('/move', payload) as Promise<MoveResponsePayload>;
+  }
+
+  public async requestAdvice(payload: AdviceRequestPayload): Promise<AdviceResponsePayload> {
+    return this._post('/advise', payload) as Promise<AdviceResponsePayload>;
+  }
+
+  private async _post(path: string, payload: unknown): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      const url = new URL('/move', this.baseUrl).toString();
+      const url = new URL(path, this.baseUrl).toString();
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,7 +80,7 @@ export class AiClient {
         throw new Error(`AI server returned status ${res.status}`);
       }
 
-      return (await res.json()) as MoveResponsePayload;
+      return res.json();
     } finally {
       clearTimeout(timeout);
     }

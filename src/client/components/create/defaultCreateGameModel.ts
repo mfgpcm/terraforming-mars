@@ -64,6 +64,7 @@ export function defaultCreateGameModel(): CreateGameModel {
     escapeVelocityBonusSeconds: constants.DEFAULT_ESCAPE_VELOCITY_BONUS_SECONDS,
     escapeVelocityPeriod: constants.DEFAULT_ESCAPE_VELOCITY_PERIOD,
     escapeVelocityPenalty: constants.DEFAULT_ESCAPE_VELOCITY_PENALTY,
+    aiTrainerEnabled: false,
     twoCorpsVariant: false,
     startingCeos: 3,
     startingPreludes: 4,

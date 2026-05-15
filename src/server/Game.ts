@@ -112,6 +112,7 @@ export class Game implements IGame, Logger {
   public inputsThisRound = 0;
   public resettable: boolean = false;
   public isSelfPlay: boolean = false;
+  public aiTrainerEnabled: boolean = false;
   public globalsPerGeneration: Array<Partial<Record<GlobalParameter, number>>> = [];
 
   public generation: number = 1;
@@ -427,6 +428,7 @@ export class Game implements IGame, Logger {
     game.log('Generation ${0}', (b) => b.forNewGeneration().number(game.generation));
 
     game.isSelfPlay = isSelfPlay;
+    game.aiTrainerEnabled = options.aiTrainerEnabled ?? false;
     game.gotoInitialPhase();
 
     return game;
@@ -1088,17 +1090,20 @@ export class Game implements IGame, Logger {
     const sortedByVP = [...this.players]
       .map((p) => ({player: p, vp: p.getVictoryPoints().total}))
       .sort((a, b) => b.vp - a.vp);
-    const logger = new TrainingLogger();
-    void logger.writeResult(this.id, {
-      endGeneration: this.generation,
-      playerResults: sortedByVP.map((entry, idx) => ({
-        playerId: entry.player.id,
-        name: entry.player.name,
-        tr: entry.player.terraformRating,
-        vp_total: entry.vp,
-        rank: idx + 1,
-      })),
-    });
+    // Self-play games are persisted to the DB; skip JSONL result logging.
+    if (!this.isSelfPlay) {
+      const logger = new TrainingLogger();
+      void logger.writeResult(this.id, {
+        endGeneration: this.generation,
+        playerResults: sortedByVP.map((entry, idx) => ({
+          playerId: entry.player.id,
+          name: entry.player.name,
+          tr: entry.player.terraformRating,
+          vp_total: entry.vp,
+          rank: idx + 1,
+        })),
+      });
+    }
 
     this.phase = Phase.END;
     const gameLoader = GameLoader.getInstance();

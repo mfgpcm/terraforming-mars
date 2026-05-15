@@ -1707,6 +1707,11 @@ export class Player implements IPlayer {
     if (pending === undefined) {
       return;
     }
+    // Self-play games are persisted to the DB; skip per-turn JSONL logging.
+    // Use export_training_data.ts to re-extract training data from DB when needed.
+    if (this.game.isSelfPlay) {
+      return;
+    }
     const logger = new TrainingLogger();
     void logger.appendTurn(this.game.id, {
       step: pending.step,

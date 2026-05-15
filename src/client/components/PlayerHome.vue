@@ -268,6 +268,26 @@
     </div>
     <purge-warning :expectedPurgeTimeMs="playerView.game.expectedPurgeTimeMs"></purge-warning>
     <KeyboardShortcuts v-show="keyboardShortcutOpened" @close="keyboardShortcutOpened = false"></KeyboardShortcuts>
+
+    <!-- AI Trainer sidebar (fixed right panel, shown when aiTrainerEnabled) -->
+    <div
+      v-if="game.gameOptions.aiTrainerEnabled"
+      class="ai-trainer-sidebar-container"
+      :style="{width: trainerWidth + 'px'}"
+    >
+      <div
+        class="ai-trainer-resize-handle"
+        @mousedown="startResize"
+        title="Drag to resize"
+      ></div>
+      <AiTrainerChat
+        :gameId="playerView.id"
+        :playerId="playerView.id"
+        :waitingForKey="waitingForKey"
+        @action-played="onActionPlayed"
+        style="flex:1; min-height:0;"
+      />
+    </div>
   </div>
 </template>
 
@@ -294,6 +314,7 @@ import StackedCards from '@/client/components/StackedCards.vue';
 import PurgeWarning from '@/client/components/common/PurgeWarning.vue';
 import UndergroundTokens from '@/client/components/underworld/UndergroundTokens.vue';
 import KeyboardShortcuts from '@/client/components/KeyboardShortcuts.vue';
+import AiTrainerChat from '@/client/components/ai/AiTrainerChat.vue';
 import {playerColorClass} from '@/common/utils/utils';
 import {getPreferences, PreferencesManager} from '@/client/utils/PreferencesManager';
 import {KeyboardNavigation} from '@/client/components/KeyboardNavigation';
@@ -308,6 +329,9 @@ import {CardModel} from '@/common/models/CardModel';
 import {getCardOrThrow} from '../cards/ClientCardManifest';
 import {APP_NAME} from '@/common/constants';
 
+const TRAINER_WIDTH_KEY = 'ai_trainer_width';
+const TRAINER_DEFAULT_WIDTH = 360;
+
 export interface PlayerHomeModel {
   showHand: boolean;
   showActiveCards: boolean;
@@ -315,7 +339,11 @@ export interface PlayerHomeModel {
   showEventCards: boolean;
   tileView: TileView;
   keyboardShortcutOpened: boolean;
-  hotkeyTargets: Array<Element>
+  hotkeyTargets: Array<Element>;
+  trainerWidth: number;
+  trainerResizing: boolean;
+  trainerResizeStartX: number;
+  trainerResizeStartWidth: number;
 }
 
 class TerraformedAlertDialog {
@@ -334,6 +362,10 @@ export default defineComponent({
       tileView: 'show',
       keyboardShortcutOpened: false,
       hotkeyTargets: [],
+      trainerWidth: parseInt(localStorage.getItem(TRAINER_WIDTH_KEY) ?? String(TRAINER_DEFAULT_WIDTH), 10),
+      trainerResizing: false,
+      trainerResizeStartX: 0,
+      trainerResizeStartWidth: 0,
     };
   },
   watch: {
@@ -383,6 +415,11 @@ export default defineComponent({
     sortActiveCards(): typeof sortActiveCards {
       return sortActiveCards;
     },
+    waitingForKey(): string {
+      const wf = this.playerView.waitingFor;
+      if (!wf) return '';
+      return `${wf.type ?? ''}:${(wf as Record<string, unknown>).title ?? ''}:${(wf as Record<string, unknown>).min ?? ''}`;
+    },
   },
 
   components: {
@@ -405,8 +442,30 @@ export default defineComponent({
     PurgeWarning,
     UndergroundTokens,
     KeyboardShortcuts,
+    AiTrainerChat,
   },
   methods: {
+    startResize(e: MouseEvent) {
+      this.trainerResizing = true;
+      this.trainerResizeStartX = e.clientX;
+      this.trainerResizeStartWidth = this.trainerWidth;
+      const onMove = (ev: MouseEvent) => {
+        if (!this.trainerResizing) return;
+        const delta = this.trainerResizeStartX - ev.clientX;
+        this.trainerWidth = Math.max(200, Math.min(800, this.trainerResizeStartWidth + delta));
+      };
+      const onUp = () => {
+        this.trainerResizing = false;
+        localStorage.setItem(TRAINER_WIDTH_KEY, String(this.trainerWidth));
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    onActionPlayed() {
+      // The regular game-state poll will pick up the new state automatically.
+    },
     navigatePage(event: KeyboardEvent) {
       // Most '?' are shifted, so process this before the action that exits early with modifiers
       if (event.key === '?') {

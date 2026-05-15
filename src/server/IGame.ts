@@ -54,6 +54,7 @@ export interface IGame extends Logger {
   inputsThisRound: number;
   resettable: boolean;
   isSelfPlay: boolean;
+  aiTrainerEnabled: boolean;
   generation: number;
   readonly players: ReadonlyArray<IPlayer>;
   readonly playersInGenerationOrder: ReadonlyArray<IPlayer>;

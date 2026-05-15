@@ -6,7 +6,6 @@ import {Player} from '../Player';
 import {BoardName} from '../../common/boards/BoardName';
 import {Phase} from '../../common/Phase';
 import {buildAiRequestState} from '../ai/stateMapping';
-import {TrainingLogger} from '../ai/TrainingLogger';
 import {ApiCreateGame} from './ApiCreateGame';
 import {safeCast, isGameId, isSpectatorId, isPlayerId} from '../../common/Types';
 import {generateRandomId} from '../utils/server-ids';
@@ -54,7 +53,6 @@ export class ApiAiNewGame extends Handler {
       req.once('end', async () => {
         try {
           const config = body ? JSON.parse(body) : {};
-          const logDir: string | undefined = config.logDir;
           const {boardName, playerCount, withPromo} = randomSelfPlayConfig({
             boardName: config.boardName,
             playerCount: config.playerCount,
@@ -87,6 +85,8 @@ export class ApiAiNewGame extends Handler {
 
           await ctx.gameLoader.add(game);
 
+          // Self-play games persist to the DB; no per-game JSONL is written.
+          // Use export_training_data.ts to re-extract training data from DB when needed.
           const gameSpec = {
             board_name: game.gameOptions.boardName,
             player_count: players.length,
@@ -94,13 +94,6 @@ export class ApiAiNewGame extends Handler {
             expansions: ApiCreateGame.enabledExpansions(game.gameOptions),
             variants: ApiCreateGame.enabledVariants(game.gameOptions),
           };
-
-          const logger = new TrainingLogger(logDir);
-          void logger.writeMeta({
-            game_id: game.id,
-            game_spec: gameSpec,
-            players: players.map((p) => ({playerId: p.id, name: p.name, isAI: p.isAI})),
-          });
 
           const activePlayer = game.players.find((p: IPlayer) => p.getWaitingFor() !== undefined);
           if (!activePlayer) {
