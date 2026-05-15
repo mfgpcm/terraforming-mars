@@ -30,14 +30,7 @@ export class ApiAiAdvice extends Handler {
             return;
           }
 
-          if (!game.aiTrainerEnabled) {
-            res.writeHead(statusCode.badRequest, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify({error: 'AI Trainer is not enabled for this game'}));
-            res.end();
-            resolve();
-            return;
-          }
-
+          // AI Trainer is opt-in per-player (purely client-side toggle). No game-wide gate.
           const player = game.getPlayerById(player_id) as Player;
           const state = buildAiRequestState(game as Game, player);
           const waitingFor = player.getWaitingFor();
@@ -84,14 +77,7 @@ export class ApiAiPlayRecommendation extends Handler {
             return;
           }
 
-          if (!game.aiTrainerEnabled) {
-            res.writeHead(statusCode.badRequest, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify({error: 'AI Trainer is not enabled for this game'}));
-            res.end();
-            resolve();
-            return;
-          }
-
+          // AI Trainer is opt-in per-player (purely client-side toggle). No game-wide gate.
           const player = game.getPlayerById(player_id) as Player;
           try {
             player.process(input_response);

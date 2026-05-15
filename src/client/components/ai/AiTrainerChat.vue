@@ -140,6 +140,9 @@ export default defineComponent({
         }
         this.latestRecommendation = null;
         this.$emit('action-played');
+        // Reload so the next waitingFor / phase / state renders identically to the
+        // normal Play button path (no risk of a stale poll cycle).
+        window.location.reload();
       } catch (e) {
         this.messages.push({role: 'trainer', text: `Network error: ${e}`});
       } finally {

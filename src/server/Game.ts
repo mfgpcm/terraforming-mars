@@ -112,7 +112,6 @@ export class Game implements IGame, Logger {
   public inputsThisRound = 0;
   public resettable: boolean = false;
   public isSelfPlay: boolean = false;
-  public aiTrainerEnabled: boolean = false;
   public globalsPerGeneration: Array<Partial<Record<GlobalParameter, number>>> = [];
 
   public generation: number = 1;
@@ -428,7 +427,6 @@ export class Game implements IGame, Logger {
     game.log('Generation ${0}', (b) => b.forNewGeneration().number(game.generation));
 
     game.isSelfPlay = isSelfPlay;
-    game.aiTrainerEnabled = options.aiTrainerEnabled ?? false;
     game.gotoInitialPhase();
 
     return game;

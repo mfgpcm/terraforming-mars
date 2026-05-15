@@ -269,9 +269,16 @@
     <purge-warning :expectedPurgeTimeMs="playerView.game.expectedPurgeTimeMs"></purge-warning>
     <KeyboardShortcuts v-show="keyboardShortcutOpened" @close="keyboardShortcutOpened = false"></KeyboardShortcuts>
 
-    <!-- AI Trainer sidebar (fixed right panel, shown when aiTrainerEnabled) -->
+    <!-- AI Trainer toggle button (always visible, fixed bottom-right) -->
+    <button
+      class="ai-trainer-toggle-btn"
+      @click="toggleTrainer"
+      :title="aiTrainerVisible ? 'Hide AI Trainer' : 'Open AI Trainer'"
+    >{{ aiTrainerVisible ? '✕' : '🤖' }}</button>
+
+    <!-- AI Trainer sidebar (fixed right panel; toggled per-player) -->
     <div
-      v-if="game.gameOptions.aiTrainerEnabled"
+      v-if="aiTrainerVisible"
       class="ai-trainer-sidebar-container"
       :style="{width: trainerWidth + 'px'}"
     >
@@ -331,6 +338,7 @@ import {APP_NAME} from '@/common/constants';
 
 const TRAINER_WIDTH_KEY = 'ai_trainer_width';
 const TRAINER_DEFAULT_WIDTH = 360;
+const TRAINER_VISIBLE_KEY_PREFIX = 'ai_trainer_visible:';
 
 export interface PlayerHomeModel {
   showHand: boolean;
@@ -344,6 +352,7 @@ export interface PlayerHomeModel {
   trainerResizing: boolean;
   trainerResizeStartX: number;
   trainerResizeStartWidth: number;
+  aiTrainerVisible: boolean;
 }
 
 class TerraformedAlertDialog {
@@ -354,6 +363,7 @@ export default defineComponent({
   name: 'player-home',
   data(): PlayerHomeModel {
     const preferences = getPreferences();
+    const trainerKey = TRAINER_VISIBLE_KEY_PREFIX + (this.playerView?.id ?? '');
     return {
       showHand: !preferences.hide_hand,
       showActiveCards: !preferences.hide_active_cards,
@@ -366,6 +376,7 @@ export default defineComponent({
       trainerResizing: false,
       trainerResizeStartX: 0,
       trainerResizeStartWidth: 0,
+      aiTrainerVisible: localStorage.getItem(trainerKey) === 'true',
     };
   },
   watch: {
@@ -463,8 +474,16 @@ export default defineComponent({
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
+    toggleTrainer() {
+      this.aiTrainerVisible = !this.aiTrainerVisible;
+      const key = TRAINER_VISIBLE_KEY_PREFIX + this.playerView.id;
+      localStorage.setItem(key, this.aiTrainerVisible ? 'true' : 'false');
+    },
     onActionPlayed() {
-      // The regular game-state poll will pick up the new state automatically.
+      // After play recommendation: re-fetch the game state via the normal player route,
+      // identical to what happens after the Play button submits. The root component owns
+      // the poll loop, so emitting bubbles up; we also nudge a fetch immediately.
+      this.$emit('refresh-player');
     },
     navigatePage(event: KeyboardEvent) {
       // Most '?' are shifted, so process this before the action that exits early with modifiers
@@ -482,8 +501,12 @@ export default defineComponent({
         [KeyboardNavigation.COLONIES]: 'shortkey-colonies',
       };
       const inputSource = event.target as Node;
-      console.log(inputSource.nodeName);
-      if (inputSource.nodeName.toLowerCase() !== 'input') {
+      // Skip hotkeys while typing in any text-input field (input / textarea /
+      // contentEditable). Without this, keys like 's' and 'd' jump the page
+      // mid-chat in the AI Trainer sidebar.
+      const tag = inputSource.nodeName.toLowerCase();
+      const isEditable = (inputSource as HTMLElement).isContentEditable === true;
+      if (tag !== 'input' && tag !== 'textarea' && !isEditable) {
         const id = ids[event.code];
         if (id) {
           const el = document.getElementById(id);
