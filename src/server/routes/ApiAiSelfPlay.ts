@@ -61,8 +61,9 @@ export class ApiAiNewGame extends Handler {
           const gameId = safeCast(generateRandomId('g'), isGameId);
           const spectatorId = safeCast(generateRandomId('s'), isSpectatorId);
 
+          const playerNames: string[] = config.playerNames ?? [];
           const players = PLAYER_CONFIGS.slice(0, playerCount).map(
-            ({color, name}) => new Player(name, color as 'blue' | 'red' | 'green' | 'yellow', false, 0,
+            ({color, name}, i) => new Player(playerNames[i] ?? name, color as 'blue' | 'red' | 'green' | 'yellow', false, 0,
               safeCast(generateRandomId('p'), isPlayerId), true),
           );
 
