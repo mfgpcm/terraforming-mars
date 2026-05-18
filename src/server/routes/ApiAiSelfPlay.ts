@@ -106,6 +106,7 @@ export class ApiAiNewGame extends Handler {
           responses.writeJson(res, ctx, {
             game_id: game.id,
             player_id: activePlayer.id,
+            spectator_id: spectatorId,
             state: buildAiRequestState(game as Game, activePlayer as Player),
             waitingFor: activePlayer.getWaitingFor()?.toModel(activePlayer),
             game_spec: gameSpec,
