@@ -56,7 +56,7 @@ function serializeLogMessage(msg: LogMessage, players: readonly IPlayer[]): stri
   return text;
 }
 
-function getRecentLog(game: Game, player: Player): string[] {
+function getRecentLog(game: Game): string[] {
   const messages = game.gameLog;
   // Find the start of the current generation
   let genStart = 0;
@@ -67,12 +67,11 @@ function getRecentLog(game: Game, player: Player): string[] {
     }
   }
   // Take from current generation start, but cap at last 25 messages.
-  // Filter to opponents' moves + system messages — the AI already knows its own moves
-  // from session memory; showing them again wastes tokens and confuses tableau attention.
+  // Include the AI's OWN moves as well as opponents' — the AI player is now stateless
+  // (no chat history), so this log is how it learns what it just did this generation.
   const startIdx = Math.max(genStart, messages.length - 25);
   return messages
     .slice(startIdx)
-    .filter((msg) => msg.playerId === undefined || msg.playerId !== player.id)
     .map((msg) => serializeLogMessage(msg, game.players));
 }
 
@@ -252,7 +251,7 @@ export function buildAiRequestState(game: Game, player: Player): AiMoveRequestSt
       availableMilestones: game.milestones.map((m) => ({name: m.name, description: m.description})),
       availableAwards: game.awards.map((a) => ({name: a.name, description: a.description})),
       gameVariants: getGameVariants(game.gameOptions),
-      recentLog: getRecentLog(game, player),
+      recentLog: getRecentLog(game),
     },
     player: {
       ...buildPlayerSnapshot(player),
