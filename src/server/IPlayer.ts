@@ -67,7 +67,6 @@ export interface IPlayer {
   beginner: boolean;
   handicap: number;
   isAI: boolean;
-  aiTrainer: boolean;
 
   readonly game: IGame;
   tags: Tags;

@@ -224,7 +224,6 @@ export class Server {
       color: player.color,
       energy: player.energy,
       isAI: player.isAI,
-      aiTrainer: player.aiTrainer,
       energyProduction: player.production.energy,
       fleetSize: player.colonies.getFleetSize(),
       handicap: useHandicap ? player.handicap : undefined,

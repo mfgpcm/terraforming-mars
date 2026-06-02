@@ -465,13 +465,8 @@
                                                   </label>
 
                                                   <label class="form-switch form-inline create-game-beginner-option-label">
-                                                      <input type="checkbox" v-model="newPlayer.isAI" @change="newPlayer.isAI && (newPlayer.aiTrainer = false)">
+                                                      <input type="checkbox" v-model="newPlayer.isAI">
                                                       <i class="form-icon"></i> <span v-i18n>AI player?</span>
-                                                  </label>
-
-                                                  <label class="form-switch form-inline create-game-beginner-option-label">
-                                                      <input type="checkbox" v-model="newPlayer.aiTrainer" :disabled="newPlayer.isAI">
-                                                      <i class="form-icon"></i> <span v-i18n>AI Trainer?</span>
                                                   </label>
 
                                                   <label class="form-label">

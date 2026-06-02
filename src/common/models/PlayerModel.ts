@@ -53,7 +53,6 @@ export type PublicPlayerModel = {
   id: PlayerId | undefined;
   influence: number;
   isAI?: boolean;
-  aiTrainer?: boolean;
   isActive: boolean;
   lastCardPlayed?: CardName;
   megacredits: number;

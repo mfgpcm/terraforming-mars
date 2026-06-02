@@ -6,7 +6,6 @@ import {Player} from '../Player';
 import {BoardName} from '../../common/boards/BoardName';
 import {Phase} from '../../common/Phase';
 import {buildAiRequestState} from '../ai/stateMapping';
-import {ApiCreateGame} from './ApiCreateGame';
 import {safeCast, isGameId, isSpectatorId, isPlayerId} from '../../common/Types';
 import {generateRandomId} from '../utils/server-ids';
 import {IPlayer} from '../IPlayer';
@@ -86,14 +85,11 @@ export class ApiAiNewGame extends Handler {
 
           await ctx.gameLoader.add(game);
 
-          // Self-play games persist to the DB; no per-game JSONL is written.
-          // Use export_training_data.ts to re-extract training data from DB when needed.
+          // Self-play (LLM-vs-LLM) games persist to the DB only.
           const gameSpec = {
             board_name: game.gameOptions.boardName,
             player_count: players.length,
             created_at: new Date().toISOString(),
-            expansions: ApiCreateGame.enabledExpansions(game.gameOptions),
-            variants: ApiCreateGame.enabledVariants(game.gameOptions),
           };
 
           const activePlayer = game.players.find((p: IPlayer) => p.getWaitingFor() !== undefined);

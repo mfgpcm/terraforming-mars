@@ -1,5 +1,5 @@
 <template>
-  <div id="player-home" :class="(game.turmoil ? 'with-turmoil': '')" :style="aiTrainerVisible && thisPlayer.aiTrainer ? {paddingRight: (trainerWidth + 8) + 'px'} : {}">
+  <div id="player-home" :class="(game.turmoil ? 'with-turmoil': '')">
     <top-bar :playerView="playerView" />
 
     <div v-if="game.phase === 'end'">
@@ -268,35 +268,6 @@
     </div>
     <purge-warning :expectedPurgeTimeMs="playerView.game.expectedPurgeTimeMs"></purge-warning>
     <KeyboardShortcuts v-show="keyboardShortcutOpened" @close="keyboardShortcutOpened = false"></KeyboardShortcuts>
-
-    <!-- AI Trainer open button — only when sidebar is closed; ✕ lives in the sidebar header -->
-    <button
-      v-if="thisPlayer.aiTrainer && !aiTrainerVisible"
-      class="ai-trainer-toggle-btn"
-      @click="toggleTrainer"
-      title="Open AI Trainer"
-    >🤖</button>
-
-    <!-- AI Trainer sidebar (fixed right panel; toggled per-player) -->
-    <div
-      v-if="thisPlayer.aiTrainer && aiTrainerVisible"
-      class="ai-trainer-sidebar-container"
-      :style="{width: trainerWidth + 'px'}"
-    >
-      <div
-        class="ai-trainer-resize-handle"
-        @mousedown="startResize"
-        title="Drag to resize"
-      ></div>
-      <AiTrainerChat
-        :gameId="playerView.id"
-        :playerId="playerView.id"
-        :waitingForKey="waitingForKey"
-        @action-played="onActionPlayed"
-        @close="toggleTrainer"
-        style="flex:1; min-height:0;"
-      />
-    </div>
   </div>
 </template>
 
@@ -323,7 +294,6 @@ import StackedCards from '@/client/components/StackedCards.vue';
 import PurgeWarning from '@/client/components/common/PurgeWarning.vue';
 import UndergroundTokens from '@/client/components/underworld/UndergroundTokens.vue';
 import KeyboardShortcuts from '@/client/components/KeyboardShortcuts.vue';
-import AiTrainerChat from '@/client/components/ai/AiTrainerChat.vue';
 import {playerColorClass} from '@/common/utils/utils';
 import {getPreferences, PreferencesManager} from '@/client/utils/PreferencesManager';
 import {KeyboardNavigation} from '@/client/components/KeyboardNavigation';
@@ -338,10 +308,6 @@ import {CardModel} from '@/common/models/CardModel';
 import {getCardOrThrow} from '../cards/ClientCardManifest';
 import {APP_NAME} from '@/common/constants';
 
-const TRAINER_WIDTH_KEY = 'ai_trainer_width';
-const TRAINER_DEFAULT_WIDTH = 360;
-const TRAINER_VISIBLE_KEY_PREFIX = 'ai_trainer_visible:';
-
 export interface PlayerHomeModel {
   showHand: boolean;
   showActiveCards: boolean;
@@ -350,11 +316,6 @@ export interface PlayerHomeModel {
   tileView: TileView;
   keyboardShortcutOpened: boolean;
   hotkeyTargets: Array<Element>;
-  trainerWidth: number;
-  trainerResizing: boolean;
-  trainerResizeStartX: number;
-  trainerResizeStartWidth: number;
-  aiTrainerVisible: boolean;
 }
 
 class TerraformedAlertDialog {
@@ -365,9 +326,6 @@ export default defineComponent({
   name: 'player-home',
   data(): PlayerHomeModel {
     const preferences = getPreferences();
-    const trainerKey = TRAINER_VISIBLE_KEY_PREFIX + (this.playerView?.id ?? '');
-    const serverEnabled = this.playerView?.thisPlayer?.aiTrainer === true;
-    const storedVisible = localStorage.getItem(trainerKey);
     return {
       showHand: !preferences.hide_hand,
       showActiveCards: !preferences.hide_active_cards,
@@ -376,11 +334,6 @@ export default defineComponent({
       tileView: 'show',
       keyboardShortcutOpened: false,
       hotkeyTargets: [],
-      trainerWidth: parseInt(localStorage.getItem(TRAINER_WIDTH_KEY) ?? String(TRAINER_DEFAULT_WIDTH), 10),
-      trainerResizing: false,
-      trainerResizeStartX: 0,
-      trainerResizeStartWidth: 0,
-      aiTrainerVisible: serverEnabled && (storedVisible === null ? true : storedVisible === 'true'),
     };
   },
   watch: {
@@ -430,11 +383,6 @@ export default defineComponent({
     sortActiveCards(): typeof sortActiveCards {
       return sortActiveCards;
     },
-    waitingForKey(): string {
-      const wf = this.playerView.waitingFor;
-      if (!wf) return '';
-      return `${wf.type ?? ''}:${(wf as Record<string, unknown>).title ?? ''}:${(wf as Record<string, unknown>).min ?? ''}`;
-    },
   },
 
   components: {
@@ -457,38 +405,8 @@ export default defineComponent({
     PurgeWarning,
     UndergroundTokens,
     KeyboardShortcuts,
-    AiTrainerChat,
   },
   methods: {
-    startResize(e: MouseEvent) {
-      this.trainerResizing = true;
-      this.trainerResizeStartX = e.clientX;
-      this.trainerResizeStartWidth = this.trainerWidth;
-      const onMove = (ev: MouseEvent) => {
-        if (!this.trainerResizing) return;
-        const delta = this.trainerResizeStartX - ev.clientX;
-        this.trainerWidth = Math.max(200, Math.min(800, this.trainerResizeStartWidth + delta));
-      };
-      const onUp = () => {
-        this.trainerResizing = false;
-        localStorage.setItem(TRAINER_WIDTH_KEY, String(this.trainerWidth));
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    },
-    toggleTrainer() {
-      this.aiTrainerVisible = !this.aiTrainerVisible;
-      const key = TRAINER_VISIBLE_KEY_PREFIX + this.playerView.id;
-      localStorage.setItem(key, this.aiTrainerVisible ? 'true' : 'false');
-    },
-    onActionPlayed() {
-      // After play recommendation: re-fetch the game state via the normal player route,
-      // identical to what happens after the Play button submits. The root component owns
-      // the poll loop, so emitting bubbles up; we also nudge a fetch immediately.
-      this.$emit('refresh-player');
-    },
     navigatePage(event: KeyboardEvent) {
       // Most '?' are shifted, so process this before the action that exits early with modifiers
       if (event.key === '?') {
@@ -505,12 +423,8 @@ export default defineComponent({
         [KeyboardNavigation.COLONIES]: 'shortkey-colonies',
       };
       const inputSource = event.target as Node;
-      // Skip hotkeys while typing in any text-input field (input / textarea /
-      // contentEditable). Without this, keys like 's' and 'd' jump the page
-      // mid-chat in the AI Trainer sidebar.
-      const tag = inputSource.nodeName.toLowerCase();
-      const isEditable = (inputSource as HTMLElement).isContentEditable === true;
-      if (tag !== 'input' && tag !== 'textarea' && !isEditable) {
+      console.log(inputSource.nodeName);
+      if (inputSource.nodeName.toLowerCase() !== 'input') {
         const id = ids[event.code];
         if (id) {
           const el = document.getElementById(id);

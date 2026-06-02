@@ -54,7 +54,6 @@ import {Colonies} from './player/Colonies';
 import {Production} from './player/Production';
 import {AiClient, MoveRequestPayload, MoveResponsePayload} from './ai/AiClient';
 import {buildAiRequestState} from './ai/stateMapping';
-import {TrainingLogger} from './ai/TrainingLogger';
 import {Stock} from './player/Stock';
 import {getBehaviorExecutor} from './behavior/BehaviorExecutor';
 import {CeoExtension} from './CeoExtension';
@@ -185,9 +184,6 @@ export class Player implements IPlayer {
 
   public user?: DiscordId;
 
-  // Plan B: pending training record captured in setWaitingFor, completed in process()
-  private pendingTrainingState: {step: number; state: Record<string, unknown>; waitingFor: unknown} | undefined = undefined;
-  private trainingStepCounter: number = 0;
   private _aiMoveInProgress: boolean = false;
 
   public get megaCredits(): number {
@@ -253,8 +249,6 @@ export class Player implements IPlayer {
 
     alliedPolicy?.onPolicyStartForPlayer?.(this);
   }
-
-  public aiTrainer: boolean = false;
 
   constructor(
     public name: string,
@@ -1694,38 +1688,12 @@ export class Player implements IPlayer {
     this.waitingForCb = undefined;
     try {
       this.timer.stop();
-      this.logTrainingTurn(input);
       this.defer(waitingFor.process(input, this));
       waitingForCb();
     } catch (err) {
       this.setWaitingFor(waitingFor, waitingForCb);
       throw err;
     }
-  }
-
-  private logTrainingTurn(input: InputResponse): void {
-    const pending = this.pendingTrainingState;
-    this.pendingTrainingState = undefined;
-    if (pending === undefined) {
-      return;
-    }
-    // Self-play games are persisted to the DB; skip per-turn JSONL logging.
-    // Use export_training_data.ts to re-extract training data from DB when needed.
-    if (this.game.isSelfPlay) {
-      return;
-    }
-    const logger = new TrainingLogger();
-    void logger.appendTurn(this.game.id, {
-      step: pending.step,
-      playerId: this.id,
-      generation: this.game.generation,
-      phase: String(this.game.phase),
-      timestamp: new Date().toISOString(),
-      state: pending.state,
-      waitingFor: pending.waitingFor,
-      input_response: input,
-      is_human: !this.isAI,
-    });
   }
 
   public getWaitingFor(): PlayerInput | undefined {
@@ -1745,13 +1713,6 @@ export class Player implements IPlayer {
     this.waitingFor = input;
     this.waitingForCb = cb;
     this.game.inputsThisRound++;
-
-    const state = buildAiRequestState(this.game as Game, this);
-    this.pendingTrainingState = {
-      step: this.trainingStepCounter++,
-      state,
-      waitingFor: state.waitingFor,
-    };
 
     if (this.isAI && !this._aiMoveInProgress && !this.game.isSelfPlay) {
       console.log('AI setWaitingFor triggering requestAiMove for', this.id, 'wf.type:', input.type);
@@ -1967,7 +1928,6 @@ export class Player implements IPlayer {
       beginner: this.beginner,
       handicap: this.handicap,
       isAI: this.isAI,
-      aiTrainer: this.aiTrainer,
       timer: this.timer.serialize(),
       // Stats
       actionsTakenThisGame: this.actionsTakenThisGame,
@@ -2010,7 +1970,6 @@ export class Player implements IPlayer {
     player.standardProjectsThisGeneration = new Set(d.standardProjectsThisGeneration);
     player.megaCredits = d.megaCredits;
     player.isAI = Boolean(d.isAI);
-    player.aiTrainer = Boolean(d.aiTrainer);
     player.needsToDraft = d.needsToDraft;
     player.oceanBonus = d.oceanBonus;
     player.plants = d.plants;
