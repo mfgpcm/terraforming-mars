@@ -68,6 +68,7 @@ export class ApiAiNewGame extends Handler {
 
           const game = Game.newInstance(
             gameId, players, players[0],
+            spectatorId,
             {
               boardName,
               corporateEra: true,
@@ -79,7 +80,7 @@ export class ApiAiNewGame extends Handler {
               fastModeOption: true,
               randomMA: RandomMAOptionType.UNLIMITED,
             },
-            Math.random(), spectatorId,
+            Math.random(),
             /* isSelfPlay */ true,
           );
 

@@ -165,6 +165,7 @@ export class ApiCreateGame extends Handler {
             turmoilExtension: gameReq.expansions.turmoil,
             twoCorpsVariant: gameReq.twoCorpsVariant,
             underworldExpansion: gameReq.expansions.underworld,
+            deltaProjectExpansion: gameReq.expansions.deltaProject,
             undoOption: gameReq.undoOption,
             venusNextExtension: gameReq.expansions.venus,
           };
@@ -175,7 +176,7 @@ export class ApiCreateGame extends Handler {
             game = Cloner.clone(gameId, players, firstPlayerIdx, serialized);
           } else {
             const seed = Math.random();
-            game = Game.newInstance(gameId, players, players[firstPlayerIdx], gameOptions, seed, spectatorId);
+            game = Game.newInstance(gameId, players, players[firstPlayerIdx], spectatorId, gameOptions, seed);
           }
           ctx.gameLoader.add(game);
 
