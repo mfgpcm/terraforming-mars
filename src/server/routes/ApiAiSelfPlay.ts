@@ -24,6 +24,7 @@ const PLAYER_CONFIGS = [
   {color: 'red',   name: 'AI-Red'},
   {color: 'green', name: 'AI-Green'},
   {color: 'yellow', name: 'AI-Yellow'},
+  {color: 'black', name: 'AI-Black'},
 ] as const;
 
 function randomSelfPlayConfig(override?: {boardName?: BoardName; playerCount?: number}): {
@@ -62,7 +63,7 @@ export class ApiAiNewGame extends Handler {
 
           const playerNames: string[] = config.playerNames ?? [];
           const players = PLAYER_CONFIGS.slice(0, playerCount).map(
-            ({color, name}, i) => new Player(playerNames[i] ?? name, color as 'blue' | 'red' | 'green' | 'yellow', false, 0,
+            ({color, name}, i) => new Player(playerNames[i] ?? name, color as 'blue' | 'red' | 'green' | 'yellow' | 'black', false, 0,
               safeCast(generateRandomId('p'), isPlayerId), true),
           );
 
