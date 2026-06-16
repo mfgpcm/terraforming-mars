@@ -7,7 +7,7 @@ import {SessionId} from '../auth/Session';
 import {GameLoader} from '../database/GameLoader';
 import {ApiCloneableGame} from '../routes/ApiCloneableGame';
 import {ApiCreateGame} from '../routes/ApiCreateGame';
-import {ApiAiNewGame, ApiAiStep} from '../routes/ApiAiSelfPlay';
+import {ApiAiNewGame, ApiAiStep, ApiAiPeek} from '../routes/ApiAiSelfPlay';
 import {ApiGame} from '../routes/ApiGame';
 import {ApiGameHistory} from '../routes/ApiGameHistory';
 import {ApiGameLogs} from '../routes/ApiGameLogs';
@@ -81,6 +81,7 @@ const handlers: Map<string, IHandler> = new Map(
     [paths.API_WAITING_FOR, ApiWaitingFor.INSTANCE],
     [paths.API_AI_NEW_GAME, ApiAiNewGame.INSTANCE],
     [paths.API_AI_STEP, ApiAiStep.INSTANCE],
+    [paths.API_AI_PEEK, ApiAiPeek.INSTANCE],
     [paths.AUTOPASS, Autopass.INSTANCE],
     [paths.CARDS, ServeApp.INSTANCE],
     ['favicon.ico', ServeAsset.INSTANCE],

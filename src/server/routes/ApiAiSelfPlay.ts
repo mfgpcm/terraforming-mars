@@ -197,3 +197,72 @@ export class ApiAiStep extends Handler {
     });
   }
 }
+
+// Read-only: returns the current pending decision for an existing game WITHOUT applying a
+// move, so a driver can resume a game (e.g. after a crash) by re-seeding its loop. Same
+// response shape as ApiAiStep; no player.process() call.
+export class ApiAiPeek extends Handler {
+  public static readonly INSTANCE = new ApiAiPeek();
+
+  public override post(req: Request, res: Response, ctx: Context): Promise<void> {
+    return new Promise((resolve) => {
+      let body = '';
+      req.on('data', (data: Buffer) => { body += data.toString(); });
+      req.once('end', async () => {
+        try {
+          const {game_id} = JSON.parse(body);
+
+          const game = await ctx.gameLoader.getGame(game_id);
+          if (game === undefined) {
+            responses.notFound(req, res);
+            resolve();
+            return;
+          }
+
+          if (game.phase === Phase.END) {
+            const sortedByVP = [...game.players]
+              .map((p) => ({player: p, vp: p.getVictoryPoints().total}))
+              .sort((a, b) => b.vp - a.vp);
+
+            responses.writeJson(res, ctx, {
+              done: true,
+              player_id: null,
+              state: null,
+              waitingFor: null,
+              result: {
+                endGeneration: game.generation,
+                playerResults: sortedByVP.map((entry, idx) => ({
+                  playerId: entry.player.id,
+                  name: entry.player.name,
+                  tr: entry.player.terraformRating,
+                  vp_total: entry.vp,
+                  rank: idx + 1,
+                })),
+              },
+            });
+            resolve();
+            return;
+          }
+
+          const nextPlayer = game.players.find((p: IPlayer) => p.getWaitingFor() !== undefined);
+          if (!nextPlayer) {
+            responses.badRequest(req, res, 'No player waiting for input and game not ended');
+            resolve();
+            return;
+          }
+
+          responses.writeJson(res, ctx, {
+            done: false,
+            player_id: nextPlayer.id,
+            state: buildAiRequestState(game as Game, nextPlayer as Player),
+            waitingFor: nextPlayer.getWaitingFor()?.toModel(nextPlayer),
+            result: null,
+          });
+        } catch (e) {
+          responses.internalServerError(req, res, e);
+        }
+        resolve();
+      });
+    });
+  }
+}
